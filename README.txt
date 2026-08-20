@@ -1,14 +1,8 @@
-REDDY COIN - LIVE SERVER PACKAGE
+REDDY COIN PREMIUM
 
-1. Install Node.js 18+.
-2. Run: npm install
-3. Set environment variables:
-   ADMIN_PASSWORD=your-strong-password
-   SESSION_SECRET=your-long-random-secret
-4. Run: npm start
-5. Customer: /
-6. Admin: /admin.html
-
-The server uses SQLite and enforces one-time code claims atomically.
-Upload this folder to a Node-compatible hosting service. Persistent disk/storage is required for SQLite and uploaded images.
-Before public use, change the default secrets and use HTTPS.
+Customer registration: /
+Customer home: /home.html
+Admin: /admin.html
+Default admin password: chiku1666
+Set ADMIN_PASSWORD and SESSION_SECRET in Railway Variables for production.
+No public folder is required.
