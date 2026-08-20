@@ -1,39 +1,24 @@
-MAHADEV BOOK FINAL - FLAT FILE DEPLOYMENT
+# MAHADEV BOOK — Flat Mobile Upload Build
 
-No public/ folder is used. All website files are in the project root.
+This package is flat: there is NO public/ folder and no separate frontend asset folder required for the HTML styling. CSS is embedded into each page so the site does not render as unstyled/plain HTML when the stylesheet asset route is missing.
 
-Start:
+## Pages
+login.html, register.html, index.html, matches.html, match.html, casino.html, aviator.html, game.html, wallet.html, deposit.html, withdraw.html, history.html, bonus.html, profile.html, support.html
+
+## Protected admin
+admin-login.html is public as the login gate. admin.html is served only after the admin session is authenticated.
+
+## Required hosting variables
+ADMIN_PASSWORD=your-admin-password
+SESSION_SECRET=long-random-secret
+CRICWIX_API_KEY=your-cricwix-key (only when live cricket feed is required)
+
+## Start
+npm install
 npm start
 
-Required hosting variables:
-ADMIN_PASSWORD=your_admin_password
-SESSION_SECRET=long_random_secret
-
-Optional:
-CRICWIX_API_KEY=your_cricwix_key
-
-Pages:
-index.html
-login.html
-register.html
-matches.html
-match.html
-casino.html
-aviator.html
-wallet.html
-deposit.html
-withdraw.html
-history.html
-bonus.html
-profile.html
-support.html
-admin-login.html
-admin.html
-
-Security:
-- admin.html is not served as a public static file; it is served only after an admin session is verified.
-- no public/ directory
-- no public uploads directory
-- no express-session dependency
-- API key is server-side only
-- virtual coin requests only; no real payment processing
+## Notes
+- Virtual coins only.
+- No public/ directory.
+- No public upload directory.
+- Live API failures are handled without crashing the server.

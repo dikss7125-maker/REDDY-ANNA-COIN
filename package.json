@@ -1,12 +1,10 @@
 {
-  "name": "mahadev-book-final",
-  "version": "3.0.0",
+  "name": "mahadev-book-virtual",
+  "version": "3.1.0",
   "private": true,
+  "main": "server.js",
   "scripts": {
     "start": "node server.js"
-  },
-  "engines": {
-    "node": ">=20"
   },
   "dependencies": {
     "express": "^4.21.2"
