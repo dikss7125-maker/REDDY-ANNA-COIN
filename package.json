@@ -1,7 +1,12 @@
 {
-  "name":"reddy-coin-premium",
-  "version":"1.0.0",
-  "private":true,
-  "scripts":{"start":"node server.js"},
-  "dependencies":{"express":"^4.21.2"}
+  "name": "reddy-coin-premium",
+  "version": "3.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1"
+  }
 }

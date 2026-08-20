@@ -1,15 +1,27 @@
-# REDDY COIN 🪙
+REDDY COIN PREMIUM FIXED
 
-No `public` folder is needed. All pages are served directly from the project root.
+Pages
+/              Customer login
+/register      Customer Create ID
+/home          Customer dashboard
+/admin         Admin panel
 
-Pages:
-- `/` Login
-- `/register` Create ID
-- `/home` Coin home page
-- `/admin` Admin panel
+Admin password: chiku1661
 
-Default admin password: `chiku1661`
+Features
+- Premium red/black/gold UI
+- Customer ID/password registration and login
+- Coin balance
+- One-time/usage-limited bonus codes
+- Admin can add/enable/disable bonus codes
+- Admin can add/enable/disable offers with images
+- Admin can edit customer support number, Telegram link, website link
+- Admin can change site name/welcome text and logo
+- No public folder
 
-For Railway, set `ADMIN_PASSWORD` in Variables. Start command is `npm start`.
+Deploy
+npm install
+npm start
 
-Important: `data.json` is simple local storage. Railway's normal filesystem can reset after a redeploy/restart. For permanent production data, use a database or persistent volume.
+For Railway, set ADMIN_PASSWORD if you want a custom password.
+Persistent storage is recommended for data.json and uploads.

@@ -1,10 +1,14 @@
 {
   "settings": {
+    "siteName": "REDDY COIN",
+    "welcomeText": "WELCOME BACK",
+    "logo": "",
     "supportNumber": "",
-    "siteLink": "",
-    "welcomeText": "Welcome to REDDY COIN"
+    "telegramLink": "",
+    "siteLink": ""
   },
   "users": [],
   "bonuses": [],
+  "offers": [],
   "claims": []
 }

@@ -1,2 +1,45 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>REDDY COIN • Home</title>
-<style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#070d15;color:#fff}.top{padding:20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ffffff10}.brand{font-weight:900;letter-spacing:3px}.logout{background:#172333;color:#fff;border:1px solid #ffffff16;padding:10px 14px;border-radius:12px}.box{width:min(720px,100%);margin:auto;padding:22px 16px}.hero,.card,.stat{background:#0e1925;border:1px solid #ffffff10;border-radius:26px;padding:24px}.hello{color:#94a7b8}.coins{font-size:44px;font-weight:900;margin-top:8px}.muted{color:#91a4b6}h2{margin:0 0 8px}.card{margin-top:18px}input{width:100%;padding:16px;margin-top:14px;border-radius:15px;border:1px solid #304153;background:#08111a;color:#fff;font-size:17px}button{width:100%;padding:16px;margin-top:14px;border:0;border-radius:15px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-weight:900;font-size:16px}.msg{min-height:24px;margin-top:14px;color:#9ff2c9}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.stat b{display:block;font-size:21px;margin-top:5px}.support{display:none;margin-top:18px;padding:18px;border-radius:20px;background:#101f2e}.support a{color:#8bdcff}@media(max-width:520px){.grid{grid-template-columns:1fr}}</style></head><body><header class="top"><div class="brand">REDDY COIN 🪙</div><button class="logout" onclick="out()">Logout</button></header><main class="box"><section class="hero"><div class="hello">Welcome, <b id="member"></b></div><div class="coins"><span id="coins">0</span> 🪙</div><div class="muted">Your current coin balance</div></section><section class="card"><h2>🎁 Claim Bonus</h2><div class="muted">Each bonus code can be claimed only once.</div><input id="code" placeholder="ENTER BONUS CODE"><button onclick="claim()">CLAIM BONUS</button><div id="msg" class="msg"></div></section><div class="grid"><div class="stat">Member ID<b id="member2">—</b></div><div class="stat">Balance<b><span id="coins2">0</span> 🪙</b></div></div><section id="support" class="support"><b>Customer Support</b><div id="st" class="muted" style="margin-top:8px"></div></section></main><script>const u=localStorage.reddyUser;if(!u)location="/";member.textContent=u;member2.textContent=u;async function refresh(){let r=await fetch("/api/user/"+encodeURIComponent(u));if(!r.ok)return out();let d=await r.json();coins.textContent=d.coins;coins2.textContent=d.coins;let s=await fetch("/api/settings").then(x=>x.json());if(s.settings.supportNumber||s.settings.siteLink){support.style.display="block";st.innerHTML=(s.settings.supportNumber?"📞 "+s.settings.supportNumber:"")+(s.settings.siteLink?`<br><a href="${s.settings.siteLink}" target="_blank">Open site link</a>`:"")}}async function claim(){msg.textContent="";let r=await fetch("/api/claim",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:u,code:code.value})}),d=await r.json();if(!r.ok){msg.style.color="#ff9b9b";return msg.textContent=d.error}msg.textContent=`Bonus claimed: ${d.amount} coins added 🪙`;code.value="";refresh()}function out(){localStorage.removeItem("reddyUser");location="/"}refresh()</script></body></html>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#05080e;color:#fff;font-family:Arial,sans-serif}.top{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;border-bottom:1px solid #ffffff12;position:sticky;top:0;background:#05080ef4;z-index:5}.brand{font-size:24px;font-weight:900;letter-spacing:2px}.icon{background:#141d28;border:1px solid #ffffff12;color:#fff;border-radius:12px;padding:10px 13px}.wrap{width:min(760px,100%);margin:auto;padding:18px 15px}.hero{background:linear-gradient(135deg,#111a25,#0a1018);border:1px solid #ffffff12;border-radius:22px;padding:22px}.hello{color:#9caaba;font-size:14px}.member{font-size:28px;font-weight:900;margin:5px 0 7px}.coins{font-size:43px;font-weight:900;color:#f5cb27}.small{color:#8e9baa}.card{margin-top:16px;background:#0d1722;border:1px solid #ffffff0e;border-radius:22px;padding:20px}.offer{width:100%;max-height:290px;object-fit:cover;border-radius:16px;margin-top:10px}.offerText{border:1px solid #ffffff0a;border-radius:15px;padding:13px;margin-top:10px}.offerText b{display:block;margin-bottom:5px}.codeRow{display:flex;gap:10px;margin-top:13px}.input{flex:1;padding:15px;border-radius:13px;border:1px solid #354353;background:#08111a;color:#fff;font-size:16px}.btn{width:125px;padding:15px;border:0;border-radius:13px;background:linear-gradient(90deg,#ff111a,#ff3b14);color:#fff;font-weight:900}.msg{min-height:22px;margin-top:12px;color:#8cf0b6;font-weight:700}.err{color:#ff8e8e}.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}.stat{background:#111c29;border-radius:16px;padding:15px;border:1px solid #ffffff09}.stat b{display:block;font-size:22px;color:#f5cb27;margin-top:4px}.history div{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #ffffff0a}.support a{display:block;text-decoration:none;color:#fff;background:#172331;border:1px solid #ffffff0d;padding:12px;border-radius:12px;margin-top:9px}.logout{background:#18232f}.nav{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:16px}.nav button{width:100%}@media(max-width:530px){.codeRow{flex-direction:column}.btn{width:100%}}</style></head>
+<body><header class="top"><div class="brand">REDDY COIN</div><button class="icon" id="logout">Logout</button></header>
+<main class="wrap"><section class="hero"><div class="hello" id="welcome">WELCOME BACK</div><div class="member" id="member">Member</div><div class="coins"><span id="coinBalance">0</span> 🪙</div><div class="small">Current coin balance</div></section>
+<section class="card"><h2>New Offers</h2><div id="offers">No active offers.</div></section>
+<section class="card"><h2>🎁 Bonus Claim</h2><div class="small">Each code can be claimed only up to its limit.</div><div class="codeRow"><input id="code" class="input" placeholder="ENTER BONUS CODE"><button id="claimBtn" class="btn">CLAIM BONUS</button></div><div id="msg" class="msg"></div></section>
+<section class="stats"><div class="stat">Member ID<b id="member2">—</b></div><div class="stat">Balance<b><span id="coin2">0</span> 🪙</b></div></section>
+<section class="card history"><h2>Recent Claims</h2><div id="history">No claims yet.</div></section>
+<section class="card support"><h2>Customer Support</h2><div id="supportText" class="small">Support details are managed from the admin panel.</div></section>
+<div class="nav"><button class="btn" id="focusClaim">BONUS</button><button class="icon" id="supportFocus">SUPPORT</button><button class="icon" onclick="location.reload()">HOME</button></div>
+</main>
+<script>
+const token=localStorage.getItem("reddy_player_token");
+const $=id=>document.getElementById(id);
+const headers=()=>({"x-player-token":token});
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+async function load(){
+ if(!token){location.href="/";return}
+ const me=await fetch("/api/me",{headers:headers()});
+ if(!me.ok){localStorage.removeItem("reddy_player_token");location.href="/";return}
+ const d=await me.json();
+ $("member").textContent=d.username;$("member2").textContent=d.username;$("coinBalance").textContent=d.coins;$("coin2").textContent=d.coins;
+ const pub=await fetch("/api/public").then(r=>r.json());
+ $("welcome").textContent=(pub.settings.welcomeText||"WELCOME BACK").toUpperCase();
+ const activeOffers=pub.offers||[];
+ $("offers").innerHTML=activeOffers.length ? activeOffers.map(o=>`<div class="offerText">${o.image?`<img class="offer" src="${o.image}" alt="">`:""}<b>${esc(o.title)}</b><span class="small">${esc(o.description||"")}</span></div>`).join("") : "No active offers.";
+ const s=pub.settings;
+ $("supportText").innerHTML=(s.supportNumber?`Support: ${esc(s.supportNumber)}`:"No support number set.")+
+   (s.telegramLink?`<a href="${esc(s.telegramLink)}" target="_blank">Telegram Support</a>`:"")+
+   (s.siteLink?`<a href="${esc(s.siteLink)}" target="_blank">Visit Website</a>`:"");
+ $("history").innerHTML=d.history.length?d.history.map(h=>`<div><span>${esc(h.code)}</span><b>${h.amount} 🪙</b></div>`).join(""):"No claims yet.";
+}
+$("claimBtn").onclick=async()=>{
+ $("msg").className="msg";$("msg").textContent="";
+ const r=await fetch("/api/claim",{method:"POST",headers:{"Content-Type":"application/json",...headers()},body:JSON.stringify({code:$("code").value})});
+ const d=await r.json();
+ if(!r.ok){$("msg").className="msg err";$("msg").textContent=d.error;return}
+ $("msg").textContent=`${d.amount} Coins added successfully.`;$("code").value="";load();
+};
+$("logout").onclick=()=>{localStorage.removeItem("reddy_player_token");location.href="/"};
+$("focusClaim").onclick=()=>$("code").focus();
+$("supportFocus").onclick=()=>document.querySelector(".support").scrollIntoView({behavior:"smooth"});
+load();
+</script></body></html>
