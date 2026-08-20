@@ -1,21 +1,39 @@
-# REDDY COIN FINAL v3 — LOGIN LOOP FIX
+MAHADEV BOOK FINAL - FLAT FILE DEPLOYMENT
 
-Routes:
-- `/` Player Login
-- `/register` Create ID
-- `/home` Player Home
-- `/withdrawal` Coin Withdrawal
-- `/admin` Admin Panel
-- `/admin.html` Admin Panel (same page)
+No public/ folder is used. All website files are in the project root.
 
-### Login-loop fix
-Player authentication now uses the existing HTTP-only cookie **plus a signed Authorization token stored locally as a fallback**. This prevents the Home page from sending the player back to Login when the Railway/browser environment does not retain the auth cookie correctly.
+Start:
+npm start
 
-Admin authentication is unchanged.
+Required hosting variables:
+ADMIN_PASSWORD=your_admin_password
+SESSION_SECRET=long_random_secret
 
-Railway environment variables:
-- `ADMIN_PASSWORD` optional
-- `AUTH_SECRET` recommended; keep it stable between deployments
-- `DATA_DIR` optional; point it to a persistent Railway Volume for database/uploads
+Optional:
+CRICWIX_API_KEY=your_cricwix_key
 
-No `public` folder is required.
+Pages:
+index.html
+login.html
+register.html
+matches.html
+match.html
+casino.html
+aviator.html
+wallet.html
+deposit.html
+withdraw.html
+history.html
+bonus.html
+profile.html
+support.html
+admin-login.html
+admin.html
+
+Security:
+- admin.html is not served as a public static file; it is served only after an admin session is verified.
+- no public/ directory
+- no public uploads directory
+- no express-session dependency
+- API key is server-side only
+- virtual coin requests only; no real payment processing

@@ -1,172 +1,270 @@
-const express=require('express');
-const Database=require('better-sqlite3');
-const multer=require('multer');
-const path=require('path');
-const fs=require('fs');
-const crypto=require('crypto');
 
-const app=express();
-const PORT=process.env.PORT||3000;
-const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||'change-this-password';
-const db=new Database(process.env.DB_PATH||'reddy_coin.db');
-fs.mkdirSync('uploads',{recursive:true});
+const express = require("express");
+const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 
-db.exec(`CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT);
-CREATE TABLE IF NOT EXISTS codes(code TEXT PRIMARY KEY,value INTEGER NOT NULL,used INTEGER DEFAULT 0,claimed_by TEXT,claimed_at TEXT);
-CREATE TABLE IF NOT EXISTS claims(id INTEGER PRIMARY KEY AUTOINCREMENT,player TEXT,code TEXT,value INTEGER,time TEXT);`);
+const app = express();
+const PORT = Number(process.env.PORT || 3000);
+const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "data.json");
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "");
+const SESSION_SECRET = String(process.env.SESSION_SECRET || "change-me");
 
-function getSetting(k, fallback=''){let r=db.prepare('SELECT value FROM settings WHERE key=?').get(k);return r?r.value:fallback}
-function setSetting(k,v){db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(k,v)}
-if(!getSetting('site_name')) setSetting('site_name','MAHADEV BOOK');
-
-app.use(express.json());
+app.use(express.json({limit:"1mb"}));
 app.use(express.urlencoded({extended:true}));
-app.use('/uploads',express.static('uploads'));
-app.get('/',(req,res)=>res.sendFile(path.join(__dirname,'index.html')));
-app.get('/admin.html',(req,res)=>res.sendFile(path.join(__dirname,'admin.html')));
-app.use('/uploads',express.static('uploads'));
-// Lightweight in-memory admin sessions. This avoids an external session package,
- // so Railway can start the app even when dependency installation is incomplete.
-const adminSessions=new Map();
-const SESSION_COOKIE='reddy_admin_session';
 
-function getSessionId(req){
-  const header=String(req.headers.cookie||'');
-  const m=header.match(new RegExp('(?:^|;\\s*)'+SESSION_COOKIE+'=([^;]+)'));
-  return m?decodeURIComponent(m[1]):null;
-}
-function setSessionCookie(res,id){
-  const secure=process.env.NODE_ENV==='production'?' Secure;':'';
-  res.setHeader('Set-Cookie',`${SESSION_COOKIE}=${encodeURIComponent(id)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400;${secure}`);
-}
-function clearSessionCookie(res){
-  res.setHeader('Set-Cookie',`${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
-}
-app.use((req,res,next)=>{
-  const id=getSessionId(req);
-  req.session={admin:!!(id && adminSessions.has(id))};
-  req.sessionId=id;
-  req.destroySession=()=>{
-    if(id) adminSessions.delete(id);
-    clearSessionCookie(res);
-  };
-  next();
-});
-
-const upload=multer({storage:multer.diskStorage({destination:'uploads/',filename:(req,file,cb)=>cb(null,Date.now()+path.extname(file.originalname).toLowerCase())}),limits:{fileSize:5*1024*1024},fileFilter:(req,file,cb)=>cb(null,/^image\/(png|jpe?g|webp|gif)$/.test(file.mimetype))});
-
-function auth(req,res,next){if(req.session.admin)return next();res.status(401).json({error:'Unauthorized'})}
-
-app.get('/api/settings',(req,res)=>res.json({siteName:getSetting('site_name','MAHADEV BOOK'),logo:getSetting('logo',''),offer:getSetting('offer',''),whatsapp:getSetting('whatsapp',''),telegram:getSetting('telegram',''),website:getSetting('website','')}));
-app.post('/api/claim',(req,res)=>{
-  const player=String(req.body.player||'').trim().slice(0,80), code=String(req.body.code||'').trim().toUpperCase().slice(0,80);
-  if(!player||!code)return res.status(400).json({error:'Player ID and code are required.'});
-  const claim=db.transaction(()=>{
-    const c=db.prepare('SELECT * FROM codes WHERE code=?').get(code);
-    if(!c)return {error:'Invalid bonus code.'};
-    if(c.used)return {error:'Code Already Used.'};
-    const now=new Date().toISOString();
-    const updated=db.prepare('UPDATE codes SET used=1,claimed_by=?,claimed_at=? WHERE code=? AND used=0').run(player,now,code);
-    if(updated.changes!==1)return {error:'Code Already Used.'};
-    db.prepare('INSERT INTO claims(player,code,value,time) VALUES(?,?,?,?)').run(player,code,c.value,now);
-    return {ok:true,value:c.value};
-  })();
-  if(claim.error)return res.status(400).json(claim);
-  res.json(claim);
-});
-
-app.post('/api/admin/login',(req,res)=>{
-  if(String(req.body.password||'')!==ADMIN_PASSWORD)return res.status(401).json({error:'Incorrect password.'});
-  const id=crypto.randomBytes(32).toString('hex');
-  adminSessions.set(id,{createdAt:Date.now()});
-  setSessionCookie(res,id);
-  res.json({ok:true});
-});
-app.post('/api/admin/logout',auth,(req,res)=>{req.destroySession();res.json({ok:true})});
-app.get('/api/admin/data',auth,(req,res)=>{
- const codes=db.prepare('SELECT * FROM codes ORDER BY rowid DESC').all();
- const claims=db.prepare('SELECT * FROM claims ORDER BY id DESC').all();
- res.json({codes,claims,settings:{siteName:getSetting('site_name','MAHADEV BOOK'),logo:getSetting('logo',''),offer:getSetting('offer',''),whatsapp:getSetting('whatsapp',''),telegram:getSetting('telegram',''),website:getSetting('website','')}});
-});
-app.post('/api/admin/code',auth,(req,res)=>{
- const code=String(req.body.code||'').trim().toUpperCase(), value=Number(req.body.value);
- if(!code||!Number.isInteger(value)||value<1)return res.status(400).json({error:'Enter a valid code and coin value.'});
- try{db.prepare('INSERT INTO codes(code,value) VALUES(?,?)').run(code,value);res.json({ok:true})}catch(e){res.status(400).json({error:'Code already exists.'})}
-});
-app.post('/api/admin/settings',auth,(req,res)=>{
- for(const k of ['siteName','whatsapp','telegram','website']) if(req.body[k]!==undefined)setSetting(k, String(req.body[k]).slice(0,300));
- res.json({ok:true});
-});
-app.post('/api/admin/logo',auth,upload.single('image'),(req,res)=>{if(!req.file)return res.status(400).json({error:'Image required'});setSetting('logo','/uploads/'+req.file.filename);res.json({ok:true,url:'/uploads/'+req.file.filename})});
-app.post('/api/admin/offer',auth,upload.single('image'),(req,res)=>{if(!req.file)return res.status(400).json({error:'Image required'});setSetting('offer','/uploads/'+req.file.filename);res.json({ok:true,url:'/uploads/'+req.file.filename})});
-// ---------- LIVE CRICKET / DEMO MATCH API ----------
-const CRICWIX_BASE='https://api.cricwix.com/ext/v1';
-let liveCache={at:0,data:null};
-const matchCache=new Map();
-
-function cricwixHeaders(){
-  const key=process.env.CRICWIX_API_KEY;
-  if(!key) throw new Error('CRICWIX_API_KEY is not configured in Railway Variables.');
-  return {'x-api-key':key,'accept':'application/json'};
-}
-
-async function cricwixGet(url){
-  const r=await fetch(url,{headers:cricwixHeaders()});
-  const text=await r.text();
-  let body={};
-  try{body=JSON.parse(text)}catch(_){}
-  if(!r.ok){
-    const msg=body?.message||body?.error||`Cricwix request failed (${r.status})`;
-    const e=new Error(msg); e.status=r.status; throw e;
+function loadData() {
+  if (!fs.existsSync(DATA_FILE)) {
+    const d = {users:{}, claims:[], wallet:[], bets:[], games:[], requests:[]};
+    fs.writeFileSync(DATA_FILE, JSON.stringify(d, null, 2));
+    return d;
   }
+  try { return JSON.parse(fs.readFileSync(DATA_FILE, "utf8")); }
+  catch { return {users:{}, claims:[], wallet:[], bets:[], games:[], requests:[]}; }
+}
+let db = loadData();
+function save(){ fs.writeFileSync(DATA_FILE, JSON.stringify(db, null, 2)); }
+function now(){ return new Date().toISOString(); }
+function id(p){ return `${p}_${Date.now().toString(36)}_${crypto.randomBytes(4).toString("hex")}`; }
+
+function hashPassword(pw, salt){
+  return crypto.scryptSync(String(pw), salt, 64).toString("hex");
+}
+function makePassword(pw){
+  const salt = crypto.randomBytes(16).toString("hex");
+  return `${salt}:${hashPassword(pw,salt)}`;
+}
+function checkPassword(pw, stored){
+  const [salt,hash] = String(stored||"").split(":");
+  if(!salt || !hash) return false;
+  return crypto.timingSafeEqual(Buffer.from(hashPassword(pw,salt),"hex"), Buffer.from(hash,"hex"));
+}
+
+function sign(payload){
+  const raw = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = crypto.createHmac("sha256", SESSION_SECRET).update(raw).digest("base64url");
+  return `${raw}.${sig}`;
+}
+function verify(token){
+  try{
+    const [raw,sig]=String(token||"").split(".");
+    if(!raw || !sig) return null;
+    const expected=crypto.createHmac("sha256", SESSION_SECRET).update(raw).digest("base64url");
+    if(!crypto.timingSafeEqual(Buffer.from(sig),Buffer.from(expected))) return null;
+    const p=JSON.parse(Buffer.from(raw,"base64url").toString("utf8"));
+    return p.exp && Date.now() < p.exp ? p : null;
+  }catch{return null}
+}
+function cookie(req,name){
+  const m=String(req.headers.cookie||"").split(";").map(s=>s.trim()).find(s=>s.startsWith(name+"="));
+  return m ? m.slice(name.length+1) : "";
+}
+function setCookie(res,name,value,days){
+  const max=Math.max(0,Math.floor(days*86400));
+  res.setHeader("Set-Cookie", `${name}=${value}; Max-Age=${max}; Path=/; HttpOnly; SameSite=Lax; Secure`);
+}
+function userFrom(req){
+  const p=verify(cookie(req,"mb_session"));
+  return p?.uid ? db.users[p.uid] : null;
+}
+function requireUser(req,res,next){
+  const u=userFrom(req);
+  if(!u) return res.status(401).json({error:"Login required."});
+  req.user=u; next();
+}
+function requireAdmin(req,res,next){
+  const p=verify(cookie(req,"mb_admin"));
+  if(!p?.admin) return res.status(401).json({error:"Admin login required."});
+  next();
+}
+function pubUser(u){ return {id:u.id,balance:u.balance,profile:u.profile,created:u.created}; }
+
+function credit(uid, amount, type, note){
+  const u=db.users[uid];
+  u.balance=Number(u.balance||0)+Number(amount);
+  db.wallet.push({id:id("TX"),uid,amount:Number(amount),type,note,time:now(),balance:u.balance});
+}
+function debit(uid, amount, type, note){
+  const u=db.users[uid];
+  if(Number(u.balance||0)<Number(amount)) return false;
+  u.balance=Number(u.balance)-Number(amount);
+  db.wallet.push({id:id("TX"),uid,amount:-Number(amount),type,note,time:now(),balance:u.balance});
+  return true;
+}
+
+// Explicit page routes. No public/ directory.
+const pages = {
+  "/login.html":"login.html",
+  "/register.html":"register.html",
+  "/":"index.html",
+  "/matches.html":"matches.html",
+  "/match.html":"match.html",
+  "/casino.html":"casino.html",
+  "/aviator.html":"aviator.html",
+  "/wallet.html":"wallet.html",
+  "/deposit.html":"deposit.html",
+  "/withdraw.html":"withdraw.html",
+  "/history.html":"history.html",
+  "/bonus.html":"bonus.html",
+  "/profile.html":"profile.html",
+  "/support.html":"support.html"
+};
+for(const [route,file] of Object.entries(pages)){
+  app.get(route,(req,res)=>res.sendFile(path.join(__dirname,file)));
+}
+// Admin login is public; admin panel itself is protected server-side.
+app.get("/admin-login.html",(req,res)=>res.sendFile(path.join(__dirname,"admin-login.html")));
+app.get("/admin.html",requireAdmin,(req,res)=>res.sendFile(path.join(__dirname,"admin.html")));
+
+// Auth APIs
+app.post("/api/register",(req,res)=>{
+  const pid=String(req.body.playerId||"").trim().toUpperCase();
+  const pw=String(req.body.password||"");
+  if(!/^[A-Z0-9_]{4,24}$/.test(pid) || pw.length<6) return res.status(400).json({error:"Use a Player ID (4–24 characters) and password of at least 6 characters."});
+  if(db.users[pid]) return res.status(409).json({error:"Player ID already exists."});
+  db.users[pid]={id:pid,password:makePassword(pw),balance:10000,profile:{name:"",phone:""},created:now()};
+  credit(pid,10000,"WELCOME","Welcome coin balance");
+  save();
+  setCookie(res,"mb_session",sign({uid:pid,exp:Date.now()+7*86400000}),7);
+  res.json({ok:true,user:pubUser(db.users[pid])});
+});
+app.post("/api/login",(req,res)=>{
+  const pid=String(req.body.playerId||"").trim().toUpperCase();
+  const u=db.users[pid];
+  if(!u || !checkPassword(String(req.body.password||""),u.password)) return res.status(401).json({error:"Invalid Player ID or password."});
+  setCookie(res,"mb_session",sign({uid:pid,exp:Date.now()+7*86400000}),7);
+  res.json({ok:true,user:pubUser(u)});
+});
+app.post("/api/logout",(req,res)=>{setCookie(res,"mb_session","",0);res.json({ok:true})});
+app.get("/api/me",(req,res)=>{const u=userFrom(req);res.json({loggedIn:!!u,user:u?pubUser(u):null})});
+
+// Bonus
+app.post("/api/bonus/claim",requireUser,(req,res)=>{
+  const code=String(req.body.code||"").trim().toUpperCase();
+  const values={WELCOME500:500,EXTRA1000:1000,BONUS2500:2500};
+  if(!values[code]) return res.status(400).json({error:"Invalid bonus code."});
+  if(db.claims.some(x=>x.code===code && x.uid===req.user.id)) return res.status(400).json({error:"This code was already claimed by this player."});
+  const value=values[code];
+  credit(req.user.id,value,"BONUS",`Bonus code ${code}`);
+  db.claims.push({id:id("CLM"),uid:req.user.id,code,value,time:now()});
+  save();
+  res.json({ok:true,value,balance:req.user.balance});
+});
+
+// History
+app.get("/api/history",requireUser,(req,res)=>{
+  const uid=req.user.id;
+  res.json({
+    wallet:db.wallet.filter(x=>x.uid===uid).slice(-100).reverse(),
+    bets:db.bets.filter(x=>x.uid===uid).slice(-100).reverse(),
+    games:db.games.filter(x=>x.uid===uid).slice(-100).reverse(),
+    claims:db.claims.filter(x=>x.uid===uid).slice(-100).reverse(),
+    requests:db.requests.filter(x=>x.uid===uid).slice(-100).reverse()
+  });
+});
+
+// Virtual coin requests (no payment processing)
+app.post("/api/request",requireUser,(req,res)=>{
+  const kind=String(req.body.kind||"").toLowerCase();
+  const amount=Math.floor(Number(req.body.amount));
+  const details=String(req.body.details||"").slice(0,200);
+  if(!["add","withdraw"].includes(kind)) return res.status(400).json({error:"Invalid request type."});
+  if(!Number.isFinite(amount)||amount<100||amount>1000000) return res.status(400).json({error:"Amount must be between 100 and 1,000,000 coins."});
+  if(kind==="withdraw" && Number(req.user.balance||0)<amount) return res.status(400).json({error:"Insufficient coin balance."});
+  if(kind==="withdraw" && !debit(req.user.id,amount,"WITHDRAW_PENDING","Withdrawal request")) return res.status(400).json({error:"Insufficient coin balance."});
+  const r={id:id("REQ"),uid:req.user.id,kind,amount,details,status:"PENDING",time:now()};
+  db.requests.push(r); save(); res.json({ok:true,request:r,balance:req.user.balance});
+});
+
+// Game engine: virtual coins only, server-side cryptographic randomness.
+app.post("/api/game/play",requireUser,(req,res)=>{
+  const game=String(req.body.game||"");
+  const stake=Math.floor(Number(req.body.stake));
+  const allowed=["aviator","roulette","teenpatti","andarbahar","dragontiger","7updown","baccarat","slots","luckywheel","coinflip","dice"];
+  if(!allowed.includes(game)) return res.status(400).json({error:"Unknown game."});
+  if(!Number.isFinite(stake)||stake<10||stake>100000) return res.status(400).json({error:"Stake must be 10–100,000 coins."});
+  if(!debit(req.user.id,stake,"GAME_STAKE",game)) return res.status(400).json({error:"Insufficient balance."});
+  let result="",mult=0;
+  const r=crypto.randomInt(0,1000000)/1000000;
+  if(game==="aviator"){ mult=Math.min(20,Math.max(1.01,1/Math.max(.06,1-r))); result=mult.toFixed(2)+"x"; }
+  else if(game==="coinflip"){ result=r<.5?"HEADS":"TAILS"; mult=1.9; }
+  else if(game==="roulette"){ const n=crypto.randomInt(0,37); result=String(n); mult=n===0?0:2; }
+  else if(game==="dice"){ const n=crypto.randomInt(1,7); result=String(n); mult=n===6?5:1.8; }
+  else if(game==="dragontiger"){ const a=crypto.randomInt(1,14),b=crypto.randomInt(1,14); result=a===b?"TIE":a>b?"DRAGON":"TIGER"; mult=a===b?8:1.95; }
+  else if(game==="7updown"){ const a=crypto.randomInt(1,7),b=crypto.randomInt(1,7),s=a+b; result=`${a}+${b}=${s}`; mult=s===7?4:1.8; }
+  else if(game==="baccarat"){ const p=crypto.randomInt(0,10),b=crypto.randomInt(0,10); result=p===b?"TIE":p>b?"PLAYER":"BANKER"; mult=p===b?8:1.95; }
+  else if(game==="andarbahar"){ result=r<.5?"ANDAR":"BAHAR"; mult=1.9; }
+  else if(game==="teenpatti"){ result=r<.48?"PLAYER":"HOUSE"; mult=1.95; }
+  else if(game==="slots"){ const s=["7","BAR","GEM","BELL","STAR"]; const a=s[crypto.randomInt(0,s.length)],b=s[crypto.randomInt(0,s.length)],c=s[crypto.randomInt(0,s.length)]; result=`${a} • ${b} • ${c}`; mult=a===b&&b===c?10:(a===b||b===c||a===c)?1.8:0; }
+  else { const opts=[100,200,300,500,1000,2500]; const v=opts[crypto.randomInt(0,opts.length)]; result=String(v); mult=v/100; }
+  const win=mult>0?Math.floor(stake*mult):0;
+  if(win) credit(req.user.id,win,"GAME_WIN",`${game} ${result}`);
+  const entry={id:id("GAME"),uid:req.user.id,game,stake,multiplier:mult,result,win,time:now()};
+  db.games.push(entry); save();
+  res.json({ok:true,entry,balance:req.user.balance});
+});
+
+// Match API proxy with robust key validation; falls back to a stable sample only when live feed unavailable.
+async function fetchCric(pathname,key){
+  const r=await fetch(`https://api.cricwix.com/ext/v1${pathname}`,{headers:{"x-api-key":key,accept:"application/json"}});
+  const text=await r.text(); let body={}; try{body=JSON.parse(text)}catch{}
+  if(!r.ok){ const e=new Error(body?.message||body?.error||`Cricwix ${r.status}`); e.status=r.status; throw e; }
   return body;
 }
-
-function normalizeFixtures(body){
-  const raw=Array.isArray(body?.data)?body.data:
-            Array.isArray(body?.data?.fixtures)?body.data.fixtures:
-            Array.isArray(body?.fixtures)?body.fixtures:[];
-  return raw.map((m,i)=>({
-    id:m.match_id??m.id??m.fixture_id??String(i),
-    status:m.status||'live',
-    localteam:m.localteam||m.home_team||m.teams?.home?.name||m.teams?.home||'Home',
-    visitorteam:m.visitorteam||m.away_team||m.teams?.away?.name||m.teams?.away||'Away',
-    localteam_score:m.localteam_score||m.home_score||m.score?.home||'',
-    visitorteam_score:m.visitorteam_score||m.away_score||m.score?.away||'',
-    venue:m.venue?.name||m.venue||'',
-    format:m.format||m.type||'Cricket',
-    series:m.series?.name||m.series||'',
-    date:m.date||m.start_time||m.start_date||''
-  }));
-}
-
-app.get('/matches.html',(req,res)=>res.sendFile(path.join(__dirname,'matches.html')));
-
-app.get('/api/live-matches',async(req,res)=>{
+const fallbackMatches=[
+  {id:"sample-ipl",series:"Indian Premier League",status:"LIVE",home:"MI",away:"CSK",homeScore:"189/4 (18.2)",awayScore:"Target 196",venue:"Wankhede Stadium"},
+  {id:"sample-odi",series:"England vs Australia ODI",status:"LIVE",home:"ENG",away:"AUS",homeScore:"220/6 (40.0)",awayScore:"Target 281",venue:"Melbourne Cricket Ground"},
+  {id:"sample-t20",series:"Pakistan vs New Zealand T20",status:"LIVE",home:"PAK",away:"NZ",homeScore:"128/3 (12.4)",awayScore:"Target 176",venue:"Gaddafi Stadium"}
+];
+function cleanKey(key){return /^[\x21-\x7E]+$/.test(key);}
+app.get("/api/live-matches",async(req,res)=>{
+  const key=String(process.env.CRICWIX_API_KEY||"").trim();
+  if(!key || !cleanKey(key)) return res.json({ok:true,live:false,matches:fallbackMatches});
   try{
-    const now=Date.now();
-    if(liveCache.data && now-liveCache.at<30000) return res.json({ok:true,matches:liveCache.data,cached:true});
-    const body=await cricwixGet(`${CRICWIX_BASE}/fixtures?status=live`);
-    const matches=normalizeFixtures(body);
-    liveCache={at:now,data:matches};
-    res.json({ok:true,matches});
-  }catch(e){
-    res.status(e.status||502).json({ok:false,error:e.message});
+    const body=await fetchCric("/fixtures?status=live",key);
+    const raw=Array.isArray(body?.data)?body.data:Array.isArray(body?.data?.fixtures)?body.data.fixtures:Array.isArray(body?.fixtures)?body.fixtures:[];
+    const matches=raw.map((m,i)=>({
+      id:m.match_id??m.id??m.fixture_id??String(i),
+      series:m.series?.name??m.series??m.format??"Cricket",
+      status:m.status??"LIVE",
+      home:m.localteam??m.home_team??m.teams?.home?.name??"Home",
+      away:m.visitorteam??m.away_team??m.teams?.away?.name??"Away",
+      homeScore:m.localteam_score??m.home_score??m.score?.home??"—",
+      awayScore:m.visitorteam_score??m.away_score??m.score?.away??"—",
+      venue:m.venue?.name??m.venue??""
+    }));
+    res.json({ok:true,live:true,matches:matches.length?matches:fallbackMatches});
+  }catch{res.json({ok:true,live:false,matches:fallbackMatches})}
+});
+app.get("/api/live-match/:id",async(req,res)=>{
+  const key=String(process.env.CRICWIX_API_KEY||"").trim();
+  if(key && cleanKey(key)){
+    try{ const body=await fetchCric(`/live/${encodeURIComponent(req.params.id)}`,key); return res.json({ok:true,live:true,match:body?.data??body}); }
+    catch{}
   }
+  const m=fallbackMatches.find(x=>String(x.id)===String(req.params.id))||fallbackMatches[0];
+  res.json({ok:true,live:false,match:m});
 });
 
-app.get('/api/live-match/:id',async(req,res)=>{
-  try{
-    const id=encodeURIComponent(req.params.id);
-    const now=Date.now(), cached=matchCache.get(id);
-    if(cached && now-cached.at<10000) return res.json({ok:true,match:cached.data,cached:true});
-    const body=await cricwixGet(`${CRICWIX_BASE}/live/${id}`);
-    const data=body?.data??body;
-    matchCache.set(id,{at:now,data});
-    res.json({ok:true,match:data});
-  }catch(e){
-    res.status(e.status||502).json({ok:false,error:e.message});
-  }
+// Admin: no direct static admin access.
+app.post("/api/admin/login",(req,res)=>{
+  if(!ADMIN_PASSWORD) return res.status(503).json({error:"ADMIN_PASSWORD is not configured."});
+  if(String(req.body.password||"")!==ADMIN_PASSWORD) return res.status(401).json({error:"Incorrect password."});
+  setCookie(res,"mb_admin",sign({admin:true,exp:Date.now()+8*3600000}),8/24);
+  res.json({ok:true});
+});
+app.post("/api/admin/logout",requireAdmin,(req,res)=>{setCookie(res,"mb_admin","",0);res.json({ok:true})});
+app.get("/api/admin/data",requireAdmin,(req,res)=>{
+  res.json({users:Object.values(db.users).map(pubUser),requests:db.requests.slice().reverse(),claims:db.claims.slice().reverse(),games:db.games.slice(-100).reverse(),bets:db.bets.slice(-100).reverse()});
+});
+app.post("/api/admin/request",requireAdmin,(req,res)=>{
+  const r=db.requests.find(x=>x.id===String(req.body.id||""));
+  if(!r || !["APPROVED","REJECTED"].includes(req.body.status)) return res.status(400).json({error:"Invalid request."});
+  if(r.status!=="PENDING") return res.status(400).json({error:"Request already handled."});
+  r.status=req.body.status; r.handledAt=now();
+  if(r.status==="REJECTED" && r.kind==="withdraw") credit(r.uid,r.amount,"WITHDRAW_REJECTED","Withdrawal request rejected");
+  if(r.status==="APPROVED" && r.kind==="add") credit(r.uid,r.amount,"ADD_APPROVED","Coin request approved");
+  save(); res.json({ok:true,r});
 });
 
-app.listen(PORT,()=>console.log('MAHADEV BOOK running on '+PORT));
+app.listen(PORT,"0.0.0.0",()=>console.log("MAHADEV BOOK listening on "+PORT));
