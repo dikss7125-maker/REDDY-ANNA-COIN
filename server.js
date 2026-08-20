@@ -144,8 +144,13 @@ function clearAuthCookie(res, type) {
   const { maxAge, ...clearOptions } = cookieOptions;
   res.clearCookie(type, clearOptions);
 }
+function getPlayerAuthToken(req) {
+  const header = String(req.get("authorization") || "");
+  if (/^Bearer\s+/i.test(header)) return header.replace(/^Bearer\s+/i, "").trim();
+  return req.cookies.rc_player || "";
+}
 function requirePlayer(req, res, next) {
-  const p = verify(req.cookies.rc_player);
+  const p = verify(getPlayerAuthToken(req));
   if (!p || p.type !== "player") return res.status(401).json({ error: "Login required." });
   const player = db.prepare("SELECT id,username,coins FROM players WHERE id=?").get(p.id);
   if (!player) return res.status(401).json({ error: "Login required." });
@@ -209,7 +214,8 @@ app.post("/api/register", (req, res) => {
   try {
     const info = db.prepare("INSERT INTO players(username,password_hash,created_at) VALUES(?,?,?)").run(id, hashPassword(password), now());
     setAuthCookie(res, "rc_player", Number(info.lastInsertRowid));
-    res.json({ ok: true, id });
+    const token = sign({ type: "player", id: Number(info.lastInsertRowid), exp: Date.now() + cookieOptions.maxAge });
+    res.json({ ok: true, id, token });
   } catch {
     res.status(409).json({ error: "This ID is already registered." });
   }
@@ -221,7 +227,8 @@ app.post("/api/login", (req, res) => {
   const player = db.prepare("SELECT id,username,password_hash,coins FROM players WHERE lower(username)=lower(?)").get(id);
   if (!player || !verifyPassword(password, player.password_hash)) return res.status(401).json({ error: "Invalid ID or password." });
   setAuthCookie(res, "rc_player", player.id);
-  res.json({ ok: true, id: player.username, coins: player.coins });
+  const token = sign({ type: "player", id: player.id, exp: Date.now() + cookieOptions.maxAge });
+  res.json({ ok: true, id: player.username, coins: player.coins, token });
 });
 app.post("/api/logout", (req, res) => { clearAuthCookie(res, "rc_player"); noStore(res); res.json({ ok: true }); });
 
