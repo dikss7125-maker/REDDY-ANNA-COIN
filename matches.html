@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>REDDY ANNA DEMO | Live Matches</title>
+<title>MAHADEV BOOK | Live Matches</title>
 <style>
 :root{--bg:#050a10;--panel:#0b121b;--panel2:#0f1824;--line:#1e2a39;--text:#f7fafc;--muted:#91a0b2;--green:#22e56f;--purple:#6d35ff;--red:#ff3448;--gold:#ffc928}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 55% 0,#101a29 0,#050a10 45%);color:var(--text);font-family:Arial,Helvetica,sans-serif}
@@ -20,9 +20,9 @@ a{color:inherit;text-decoration:none}.top{height:78px;border-bottom:1px solid va
 </head>
 <body>
 <header class="top">
-  <a class="logo" href="/">REDDY ANNA<small>DEMO</small></a>
+  <a class="logo" href="/">MAHADEV BOOK<small>DEMO</small></a>
   <nav class="nav"><a class="active" href="/matches.html">♧ Matches</a><a href="/">⌂ Home</a></nav>
-  <div class="balance"><span class="coin">🪙</span> <span id="balance">10,000</span> <small>DEMO COINS</small></div>
+  <div class="balance"><span class="coin">🪙</span> <span id="balance">10,000</span> <small>VIRTUAL COINS</small></div>
   <div class="avatar">P</div>
 </header>
 
@@ -33,12 +33,12 @@ a{color:inherit;text-decoration:none}.top{height:78px;border-bottom:1px solid va
     <a href="#demo">🪙 Demo Wallet</a>
     <a href="/">🎁 Bonus Code</a>
     <a href="#support">❓ Support</a>
-    <div class="demo"><b>DEMO SESSION</b><p>Play with demo coins<br>No real money<br>For entertainment/testing only</p></div>
+    <div class="demo"><b>VIRTUAL SESSION</b><p>Play with virtual coins<br>No real money<br>For entertainment/testing only</p></div>
   </aside>
 
   <main class="main">
     <h1>🏏 Live Matches <span class="live">LIVE</span></h1>
-    <div class="sub">Real match data • Demo play</div>
+    <div class="sub">Real match data • Virtual-coin play</div>
     <div id="error" class="err"></div>
     <div id="matchCards" class="cards"></div>
 
@@ -47,10 +47,10 @@ a{color:inherit;text-decoration:none}.top{height:78px;border-bottom:1px solid va
     </section>
 
     <section id="demo" class="demoBox">
-      <h2>🎮 DEMO SESSION</h2>
+      <h2>🎮 VIRTUAL SESSION</h2>
       <div class="demoSteps">
-        <div class="step"><b>1</b><br>Select demo market</div>
-        <div class="step"><b>2</b><br>Choose demo coins</div>
+        <div class="step"><b>1</b><br>Select virtual market</div>
+        <div class="step"><b>2</b><br>Choose virtual coins</div>
         <div class="step"><b>3</b><br>Demo result only</div>
       </div>
     </section>
@@ -58,7 +58,7 @@ a{color:inherit;text-decoration:none}.top{height:78px;border-bottom:1px solid va
     <section class="markets" id="bets">
       <div class="tabs"><span class="on">Popular</span><span>Match Winner</span><span>Total Runs</span><span>Top Player</span></div>
       <div class="market">
-        <div class="marketTitle">Match Winner <small style="color:#7e8da0">(demo odds)</small></div>
+        <div class="marketTitle">Match Winner <small style="color:#7e8da0">(virtual odds)</small></div>
         <div class="options"><button class="option" onclick="selectOption(this)"><span id="homeName">Home</span><span class="odds">1.65</span></button><button class="option" onclick="selectOption(this)"><span id="awayName">Away</span><span class="odds">2.20</span></button></div>
       </div>
       <div class="market">
@@ -68,7 +68,7 @@ a{color:inherit;text-decoration:none}.top{height:78px;border-bottom:1px solid va
       <div class="place">
         <div style="display:flex;justify-content:space-between"><b>Place Demo Pick</b><span>🪙 <span id="placeBal">10,000</span></span></div>
         <p style="color:#94a1b1;font-size:12px">Selected: <span id="selected">Choose an option</span></p>
-        <div class="placeRow"><div class="stake">100 demo coins</div><div style="text-align:center">×</div><button class="bet" onclick="demoBet()">PLACE DEMO PICK</button></div>
+        <div class="placeRow"><div class="stake">100 virtual coins</div><div style="text-align:center">×</div><button class="bet" onclick="demoBet()">PLACE DEMO PICK</button></div>
         <p id="betMsg" style="color:#8df0b3;font-size:12px"></p>
       </div>
     </section>
@@ -79,7 +79,7 @@ a{color:inherit;text-decoration:none}.top{height:78px;border-bottom:1px solid va
     <div class="info"><h3>Ball by Ball</h3><div id="balls"><div class="empty">Select a live match</div></div></div>
   </aside>
 </div>
-<div class="footer">This is a demo game. Demo coins only. No real money is involved.</div>
+<div class="footer">This is a virtual-coin game. Demo coins only. No real money is involved.</div>
 
 <script>
 let matches=[], selectedId=null, selected=null, timer=null;
@@ -128,7 +128,7 @@ function renderMatch(m){
   const status=findVal(m,['status'],'LIVE');
   $('score').innerHTML=`<div class="scorehead"><span><span class="live">LIVE</span> Live Match</span><span>${esc(format)}</span></div>
   <div class="teamscore"><div><div style="font-size:24px;font-weight:900">${esc(home)}</div><div class="score">${esc(hs)}</div></div><div class="versus">VS</div><div><div style="font-size:24px;font-weight:900">${esc(away)}</div><div class="score">${esc(as)}</div></div></div>
-  <div class="note">Real cricket score • Demo session uses virtual coins only</div>`;
+  <div class="note">Real cricket score • Session uses virtual coins only</div>`;
   $('homeName').textContent=home;$('awayName').textContent=away;
   $('infoMatch').textContent=home+' vs '+away;$('infoFormat').textContent=format;$('infoVenue').textContent=venue;$('infoStatus').textContent=status;
   const deliveries=findVal(m,['balls','ball_by_ball','deliveries','scorecard.balls'],[]);

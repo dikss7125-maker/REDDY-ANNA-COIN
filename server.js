@@ -1,9 +1,9 @@
 const express=require('express');
-const session=require('express-session');
 const Database=require('better-sqlite3');
 const multer=require('multer');
 const path=require('path');
 const fs=require('fs');
+const crypto=require('crypto');
 
 const app=express();
 const PORT=process.env.PORT||3000;
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS claims(id INTEGER PRIMARY KEY AUTOINCREMENT,player TE
 
 function getSetting(k, fallback=''){let r=db.prepare('SELECT value FROM settings WHERE key=?').get(k);return r?r.value:fallback}
 function setSetting(k,v){db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(k,v)}
-if(!getSetting('site_name')) setSetting('site_name','REDDY COIN');
+if(!getSetting('site_name')) setSetting('site_name','MAHADEV BOOK');
 
 app.use(express.json());
 app.use(express.urlencoded({extended:true}));
@@ -25,13 +25,39 @@ app.use('/uploads',express.static('uploads'));
 app.get('/',(req,res)=>res.sendFile(path.join(__dirname,'index.html')));
 app.get('/admin.html',(req,res)=>res.sendFile(path.join(__dirname,'admin.html')));
 app.use('/uploads',express.static('uploads'));
-app.use(session({secret:process.env.SESSION_SECRET||'change-session-secret',resave:false,saveUninitialized:false,cookie:{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production'}}));
+// Lightweight in-memory admin sessions. This avoids an external session package,
+ // so Railway can start the app even when dependency installation is incomplete.
+const adminSessions=new Map();
+const SESSION_COOKIE='reddy_admin_session';
+
+function getSessionId(req){
+  const header=String(req.headers.cookie||'');
+  const m=header.match(new RegExp('(?:^|;\\s*)'+SESSION_COOKIE+'=([^;]+)'));
+  return m?decodeURIComponent(m[1]):null;
+}
+function setSessionCookie(res,id){
+  const secure=process.env.NODE_ENV==='production'?' Secure;':'';
+  res.setHeader('Set-Cookie',`${SESSION_COOKIE}=${encodeURIComponent(id)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400;${secure}`);
+}
+function clearSessionCookie(res){
+  res.setHeader('Set-Cookie',`${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+}
+app.use((req,res,next)=>{
+  const id=getSessionId(req);
+  req.session={admin:!!(id && adminSessions.has(id))};
+  req.sessionId=id;
+  req.destroySession=()=>{
+    if(id) adminSessions.delete(id);
+    clearSessionCookie(res);
+  };
+  next();
+});
 
 const upload=multer({storage:multer.diskStorage({destination:'uploads/',filename:(req,file,cb)=>cb(null,Date.now()+path.extname(file.originalname).toLowerCase())}),limits:{fileSize:5*1024*1024},fileFilter:(req,file,cb)=>cb(null,/^image\/(png|jpe?g|webp|gif)$/.test(file.mimetype))});
 
 function auth(req,res,next){if(req.session.admin)return next();res.status(401).json({error:'Unauthorized'})}
 
-app.get('/api/settings',(req,res)=>res.json({siteName:getSetting('site_name','REDDY COIN'),logo:getSetting('logo',''),offer:getSetting('offer',''),whatsapp:getSetting('whatsapp',''),telegram:getSetting('telegram',''),website:getSetting('website','')}));
+app.get('/api/settings',(req,res)=>res.json({siteName:getSetting('site_name','MAHADEV BOOK'),logo:getSetting('logo',''),offer:getSetting('offer',''),whatsapp:getSetting('whatsapp',''),telegram:getSetting('telegram',''),website:getSetting('website','')}));
 app.post('/api/claim',(req,res)=>{
   const player=String(req.body.player||'').trim().slice(0,80), code=String(req.body.code||'').trim().toUpperCase().slice(0,80);
   if(!player||!code)return res.status(400).json({error:'Player ID and code are required.'});
@@ -49,12 +75,18 @@ app.post('/api/claim',(req,res)=>{
   res.json(claim);
 });
 
-app.post('/api/admin/login',(req,res)=>{if(String(req.body.password||'')===ADMIN_PASSWORD){req.session.admin=true;return res.json({ok:true})}res.status(401).json({error:'Incorrect password.'})});
-app.post('/api/admin/logout',auth,(req,res)=>{req.session.destroy(()=>res.json({ok:true}))});
+app.post('/api/admin/login',(req,res)=>{
+  if(String(req.body.password||'')!==ADMIN_PASSWORD)return res.status(401).json({error:'Incorrect password.'});
+  const id=crypto.randomBytes(32).toString('hex');
+  adminSessions.set(id,{createdAt:Date.now()});
+  setSessionCookie(res,id);
+  res.json({ok:true});
+});
+app.post('/api/admin/logout',auth,(req,res)=>{req.destroySession();res.json({ok:true})});
 app.get('/api/admin/data',auth,(req,res)=>{
  const codes=db.prepare('SELECT * FROM codes ORDER BY rowid DESC').all();
  const claims=db.prepare('SELECT * FROM claims ORDER BY id DESC').all();
- res.json({codes,claims,settings:{siteName:getSetting('site_name','REDDY COIN'),logo:getSetting('logo',''),offer:getSetting('offer',''),whatsapp:getSetting('whatsapp',''),telegram:getSetting('telegram',''),website:getSetting('website','')}});
+ res.json({codes,claims,settings:{siteName:getSetting('site_name','MAHADEV BOOK'),logo:getSetting('logo',''),offer:getSetting('offer',''),whatsapp:getSetting('whatsapp',''),telegram:getSetting('telegram',''),website:getSetting('website','')}});
 });
 app.post('/api/admin/code',auth,(req,res)=>{
  const code=String(req.body.code||'').trim().toUpperCase(), value=Number(req.body.value);
@@ -137,4 +169,4 @@ app.get('/api/live-match/:id',async(req,res)=>{
   }
 });
 
-app.listen(PORT,()=>console.log('REDDY COIN running on '+PORT));
+app.listen(PORT,()=>console.log('MAHADEV BOOK running on '+PORT));
