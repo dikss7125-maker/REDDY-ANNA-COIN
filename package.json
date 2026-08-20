@@ -1,11 +1,13 @@
 {
-  "name": "reddy-coin-premium",
-  "version": "3.1.0",
+  "name": "reddy-coin-final",
+  "version": "3.0.0",
   "private": true,
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "cookie-parser": "^1.4.7",
     "express": "^4.21.2",
     "multer": "^1.4.5-lts.1"
   }
