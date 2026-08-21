@@ -12,7 +12,7 @@ Then trigger a fresh deployment.
 Required Railway variables:
 - ADMIN_PASSWORD = your admin password
 - SESSION_SECRET is no longer required
-- CRICWIX_API_KEY = required only for the live-match API
+- CRICKETDATA_API_KEY or CRICWIX_API_KEY = required for the live-match API
 
 After deployment, open the public Railway domain and test:
 1. Home page

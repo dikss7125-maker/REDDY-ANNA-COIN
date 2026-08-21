@@ -8,7 +8,7 @@ Added:
 - Home page gets a LIVE MATCHES button
 
 Railway variable required:
-CRICWIX_API_KEY = your Cricwix API key
+CRICKETDATA_API_KEY or CRICWIX_API_KEY = your Cricwix API key
 
 Important:
 - The match feed is real cricket data from Cricwix.
