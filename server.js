@@ -1,12 +1,19 @@
 const express=require('express');const crypto=require('crypto');const fs=require('fs');const path=require('path');
-const app=express();const PORT=Number(process.env.PORT||3000);const ADMIN_PASSWORD=String(process.env.ADMIN_PASSWORD||'chiku1661');const SESSION_SECRET=String(process.env.SESSION_SECRET||'');const DB_PATH=process.env.DATA_PATH||path.join(__dirname,'data.json');
+const app=express();const PORT=Number(process.env.PORT||3000);const ADMIN_PASSWORD=String(process.env.ADMIN_PASSWORD||'chiku1661');const SESSION_SECRET=String(process.env.SESSION_SECRET||'');const DB_PATH=process.env.DATA_PATH||path.join(__dirname,'data.json');const USER_DB_PATH=process.env.USER_DATA_PATH||path.join(__dirname,'users_data.json');
 if(!ADMIN_PASSWORD||!SESSION_SECRET) console.warn('WARNING: ADMIN_PASSWORD and SESSION_SECRET should be set in hosting variables.');
 app.use(express.json({limit:'8mb'}));app.use(express.urlencoded({extended:true}));
 fs.mkdirSync(path.join(__dirname,'uploads'),{recursive:true});
 app.use('/uploads',express.static(path.join(__dirname,'uploads')));
 const db=load();
+const USER_FIELDS=['users','claims','wallet','bets','games','coinRequests','withdrawals','withdrawalDetails'];
 if(!db.settings)db.settings={siteName:'MHADEV BOOK',supportTelegram:'',supportWhatsapp:''};
-if(!db.users)db.users={};if(!db.claims)db.claims=[];if(!db.wallet)db.wallet=[];if(!db.bets)db.bets=[];if(!db.games)db.games=[];if(!db.coinRequests)db.coinRequests=[];if(!db.withdrawals)db.withdrawals=[];if(!db.withdrawalDetails)db.withdrawalDetails={};if(!db.bonusCodes)db.bonusCodes={WELCOME500:500,EXTRA1000:1000,BONUS2500:2500};if(!db.depositSettings)db.depositSettings={account:{name:'',accountNumber:'',ifsc:'',bank:''},qr:{image:'',upiId:''}};function load(){try{return JSON.parse(fs.readFileSync(DB_PATH,'utf8'))}catch{return {settings:{siteName:'MHADEV BOOK',supportTelegram:'',supportWhatsapp:''},users:{},claims:[],wallet:[],bets:[],games:[],coinRequests:[]}}}function save(){fs.writeFileSync(DB_PATH+'.tmp',JSON.stringify(db,null,2));fs.renameSync(DB_PATH+'.tmp',DB_PATH)}
+if(!db.bonusCodes)db.bonusCodes={WELCOME500:500,EXTRA1000:1000,BONUS2500:2500};if(!db.depositSettings)db.depositSettings={account:{name:'',accountNumber:'',ifsc:'',bank:''},qr:{image:'',upiId:''}};
+const legacyUsers={users:db.users||{},claims:db.claims||[],wallet:db.wallet||[],bets:db.bets||[],games:db.games||[],coinRequests:db.coinRequests||[],withdrawals:db.withdrawals||[],withdrawalDetails:db.withdrawalDetails||{}};
+let userStore;try{userStore=JSON.parse(fs.readFileSync(USER_DB_PATH,'utf8'))}catch{userStore=legacyUsers;writeUserStore()}
+for(const k of USER_FIELDS)db[k]=userStore[k]??legacyUsers[k];
+function load(){try{return JSON.parse(fs.readFileSync(DB_PATH,'utf8'))}catch{return {settings:{siteName:'MHADEV BOOK',supportTelegram:'',supportWhatsapp:''},bonusCodes:{WELCOME500:500,EXTRA1000:1000,BONUS2500:2500},depositSettings:{account:{name:'',accountNumber:'',ifsc:'',bank:''},qr:{image:'',upiId:''}}}}}
+function writeUserStore(){const out={};for(const k of USER_FIELDS)out[k]=db?.[k]??userStore?.[k]??legacyUsers[k];fs.mkdirSync(path.dirname(USER_DB_PATH),{recursive:true});fs.writeFileSync(USER_DB_PATH+'.tmp',JSON.stringify(out,null,2));fs.renameSync(USER_DB_PATH+'.tmp',USER_DB_PATH)}
+function save(){const base={...db};for(const k of USER_FIELDS)delete base[k];fs.writeFileSync(DB_PATH+'.tmp',JSON.stringify(base,null,2));fs.renameSync(DB_PATH+'.tmp',DB_PATH);writeUserStore()}
 function id(p){return p+'_'+Date.now().toString(36)+'_'+crypto.randomBytes(4).toString('hex')}function now(){return new Date().toISOString()}
 function sign(p){const raw=Buffer.from(JSON.stringify(p)).toString('base64url');const sig=crypto.createHmac('sha256',SESSION_SECRET||'unsafe').update(raw).digest('base64url');return raw+'.'+sig}function verify(t){try{const [raw,sig]=String(t||'').split('.');const e=crypto.createHmac('sha256',SESSION_SECRET||'unsafe').update(raw).digest('base64url');if(sig!==e)return null;const x=JSON.parse(Buffer.from(raw,'base64url').toString());if(!x.exp||Date.now()>x.exp)return null;return x}catch{return null}}
 function cookie(req,res,n,v,age){const proto=String(req.headers['x-forwarded-proto']||'').split(',')[0].trim();const secure=req.secure||proto==='https';res.setHeader('Set-Cookie',`${n}=${v}; Path=/; Max-Age=${age}; HttpOnly;${secure?' Secure;':''} SameSite=Lax`)}function cookies(req){const o={};for(const p of String(req.headers.cookie||'').split(';')){const q=p.trim().split('=');if(q.length>1)o[q.shift()]=q.join('=')}return o}
@@ -59,7 +66,15 @@ function oddsPapiKey(){return String(process.env.ODDSPAPI_API_KEY||'').replace(/
 async function oddsPapiGet(endpoint,params={}){const key=oddsPapiKey();if(!key)throw Object.assign(new Error('ODDSPAPI_API_KEY is not configured.'),{status:503,code:'ODDSPAPI_MISSING_KEY'});const q=new URLSearchParams({...params,apiKey:key});const r=await fetch(`https://api.oddspapi.io/v4/${endpoint}?${q.toString()}`,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(15000)});const text=await r.text();let body={};try{body=JSON.parse(text)}catch{body={raw:text}}if(!r.ok)throw Object.assign(new Error(body?.message||body?.error||`OddsPapi HTTP ${r.status}`),{status:r.status,body});return body}
 function normTeam(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(/\s+/).filter(x=>x.length>1).sort().join(' ')}
 function teamMatch(a,b){const x=normTeam(a),y=normTeam(b);if(!x||!y)return false;if(x===y)return true;const as=new Set(x.split(' ')),bs=new Set(y.split(' '));let common=0;for(const t of as)if(bs.has(t))common++;return common>=Math.max(1,Math.min(as.size,bs.size)-1)}
-function bestExchange(p){const meta=p?.exchangeMeta||{};const backs=meta.availableToBack||meta.back||[];const lays=meta.availableToLay||meta.lay||[];return {back:Array.isArray(backs)&&backs.length?Number(backs[0].price):null,lay:Array.isArray(lays)&&lays.length?Number(lays[0].price):null,backSize:Array.isArray(backs)&&backs.length?Number(backs[0].size||0):0,laySize:Array.isArray(lays)&&lays.length?Number(lays[0].size||0):0}}
+function bestExchange(p){
+  const meta=p?.exchangeMeta||{};
+  const pick=(v)=>Array.isArray(v)&&v.length?Number(v[0]?.price):((typeof v==='number'||typeof v==='string')&&Number.isFinite(Number(v))?Number(v):null);
+  const back=pick(meta.availableToBack)??pick(meta.back)??pick(p?.availableToBack)??pick(p?.back)??pick(p?.price);
+  const lay=pick(meta.availableToLay)??pick(meta.lay)??pick(p?.availableToLay)??pick(p?.lay);
+  const size=(v)=>Array.isArray(v)&&v.length?Number(v[0]?.size||0):0;
+  return {back,lay,backSize:size(meta.availableToBack)||size(meta.back),laySize:size(meta.availableToLay)||size(meta.lay)};
+}
+
 app.get('/api/match-odds/:id',async(req,res)=>{try{const body=await cricketDataGet('https://api.cricapi.com/v1/match_info?id='+encodeURIComponent(req.params.id)+'&offset=0');const m=body?.data||body;const teams=Array.isArray(m?.teams)?m.teams:[m?.localteam?.name,m?.visitorteam?.name].filter(Boolean);const home=teams[0]||'',away=teams[1]||'';if(!home||!away)return res.status(404).json({error:'Team names unavailable for this match.'});const from=new Date(Date.now()-12*3600000).toISOString(),to=new Date(Date.now()+35*3600000).toISOString();const fixtures=await oddsPapiGet('fixtures',{sportId:27,from,to,statusId:1,hasOdds:'true',bookmakers:'betfair-ex'});const list=Array.isArray(fixtures)?fixtures:(Array.isArray(fixtures?.data)?fixtures.data:[]);let f=list.find(x=>teamMatch(x.participant1Name,home)&&teamMatch(x.participant2Name,away))||list.find(x=>teamMatch(x.participant1Name,away)&&teamMatch(x.participant2Name,home));if(!f)return res.status(404).json({error:'OddsPapi fixture not found for this match.',home,away});const odds=await oddsPapiGet('odds',{fixtureId:f.fixtureId,bookmakers:'betfair-ex'});const book=odds?.bookmakerOdds?.['betfair-ex'];const market=book?.markets?.['271']||book?.markets?.[271];if(!market)return res.status(404).json({error:'Betfair Match Winner market is not available right now.',fixtureId:f.fixtureId});const outcomes=market.outcomes||{};const p1=outcomes['271']?.players?.['0']||outcomes['271']?.players?.[0];const p2=outcomes['272']?.players?.['0']||outcomes['272']?.players?.[0];if(!p1||!p2)return res.status(404).json({error:'Back/Lay outcomes are not available right now.',fixtureId:f.fixtureId});return res.json({ok:true,fixtureId:f.fixtureId,home:f.participant1Name,away:f.participant2Name,prices:{home:bestExchange(p1),away:bestExchange(p2)},source:'oddspapi/betfair-ex'});}catch(e){console.error('OddsPapi match-odds error:',e?.message||e);return res.status(e?.status||502).json({error:e?.message||'Odds feed unavailable.',code:e?.code||'ODDSPAPI_CONNECTION_FAILED'})}});
 
 // CricketData.org live-feed proxy. API key stays server-side.
@@ -78,6 +93,25 @@ async function cricketDataGet(url){
   if(!r.ok || body?.status==='failure'){ const e=new Error(body?.reason||body?.message||`CricketData HTTP ${r.status}`); e.status=r.status>=400?r.status:502; throw e; }
   return body;
 }
+
+let upcomingCache={at:0,data:[]};
+app.get('/api/upcoming-matches',async(req,res)=>{
+  try{
+    const fresh=Date.now()-upcomingCache.at>=60*60*1000;
+    if(!fresh&&upcomingCache.data.length)return res.json({ok:true,matches:upcomingCache.data,cachedAt:upcomingCache.at,cacheMinutes:60,source:'oddspapi'});
+    const from=new Date().toISOString();
+    const to=new Date(Date.now()+48*3600000).toISOString();
+    const body=await oddsPapiGet('fixtures',{sportId:27,from,to,statusId:0,hasOdds:'true',bookmakers:'betfair-ex',language:'en'});
+    const list=Array.isArray(body)?body:(Array.isArray(body?.data)?body.data:[]);
+    upcomingCache={at:Date.now(),data:list.filter(x=>x&&x.statusId===0).sort((a,b)=>new Date(a.startTime)-new Date(b.startTime)).slice(0,30)};
+    res.set('Cache-Control','no-store');
+    return res.json({ok:true,matches:upcomingCache.data,cachedAt:upcomingCache.at,cacheMinutes:60,source:'oddspapi'});
+  }catch(e){
+    console.error('OddsPapi upcoming-matches error:',e?.message||e);
+    if(upcomingCache.data.length)return res.json({ok:true,matches:upcomingCache.data,cachedAt:upcomingCache.at,cacheMinutes:60,source:'oddspapi-cache'});
+    return res.status(e?.status||502).json({error:e?.message||'Upcoming matches unavailable.',code:e?.code||'UPCOMING_MATCHES_FAILED'});
+  }
+});
 
 app.get('/api/live-matches',async(req,res)=>{
   try{
