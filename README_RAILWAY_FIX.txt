@@ -1,21 +1,13 @@
-RAILWAY FIX
-===========
-The previous deployment crashed with:
-Error: Cannot find module 'express-session'
+RAILWAY DEPLOYMENT NOTES
 
-This version removes that external session dependency and uses a small in-memory
-admin session store, so the app can boot without express-session.
+Required:
+- ADMIN_PASSWORD
+- SESSION_SECRET
+- ODDSPAPI_API_KEY
 
-Deploy all files from this ZIP to the Railway-connected repository/project.
-Then trigger a fresh deployment.
+Optional for detailed cricket scores:
+- CRICKETDATA_API_KEY or CRICWIX_API_KEY
 
-Required Railway variables:
-- ADMIN_PASSWORD = your admin password
-- SESSION_SECRET is no longer required
-- CRICKETDATA_API_KEY or CRICWIX_API_KEY = required for the live-match API
+Player/user records are stored separately in users_data.json through USER_DATA_PATH, so normal code/layout deployments do not rebuild the user database.
 
-After deployment, open the public Railway domain and test:
-1. Home page
-2. /admin.html
-3. Admin login
-4. Bonus code creation/claim
+Important: Railway filesystem data is persistent only when your service uses persistent storage/volume. If you need player data to survive a full service recreation, attach a Railway Volume and set USER_DATA_PATH and DATA_PATH to that persistent path.
