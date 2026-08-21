@@ -23,6 +23,17 @@ const names=['Player***12','Player***48','Player***73','Player***26','Player***9
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -20%,#111b2a 0,#05070c 48%,#020307 100%);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}button,input{font:inherit}button{cursor:pointer}html,body{touch-action:manipulation;-webkit-text-size-adjust:100%;overscroll-behavior:none}.wrap{width:min(1180px,100%);margin:auto;padding:10px 10px 22px}.top{height:58px;display:flex;align-items:center;gap:10px;padding:0 2px}.logo{font-weight:1000;font-style:italic;font-size:24px;color:#ff405c;letter-spacing:-1px}.topBalance{margin-left:auto;display:flex;align-items:center;gap:8px;border:1px solid #263245;background:#080d15;border-radius:999px;padding:8px 13px;font-weight:900}.balDot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#fff,#aeb8c6 45%,#647083);color:#18202b;font-size:12px}.icon{width:40px;height:40px;border-radius:50%;border:1px solid #293548;background:#080d15;color:#fff;display:grid;place-items:center}.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:12px}.side,.card{background:linear-gradient(180deg,#080d15,#050911);border:1px solid #1d2938;border-radius:18px;box-shadow:var(--shadow)}.side{padding:14px}.side h3{margin:0 0 12px;font-size:14px}.player{display:grid;grid-template-columns:30px 1fr auto;gap:9px;align-items:center;padding:9px 0;border-bottom:1px solid #15202d}.player:last-child{border-bottom:0}.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#243047,#4b6d9f);font-size:11px;font-weight:1000}.pname{font-size:12px;font-weight:800}.pstatus{font-size:10px;color:var(--muted);margin-top:3px}.pamt{font-size:12px;font-weight:900}.main{min-width:0}.multstrip{display:flex;gap:7px;overflow:hidden;margin-bottom:9px}.mult{min-width:76px;text-align:center;padding:10px 7px;border:1px solid #243249;background:#0a1422;border-radius:11px;color:#66aaff;font-weight:1000}.mult.red{color:#ff5269;background:#190c12;border-color:#51202c}.mult.purple{color:#c58aff;background:#160d22;border-color:#3b2159}.game{overflow:hidden}.gameTop{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 13px;border-bottom:1px solid #182434;background:#070b12}.round{font-size:12px;font-weight:900;color:#dce2ea}.status{font-size:11px;font-weight:1000;padding:7px 10px;border-radius:999px;background:#152113;border:1px solid #2b5d32;color:#7ce59c}.scene{height:470px;overflow:hidden;contain:layout paint;position:relative;overflow:hidden;background:radial-gradient(circle at 58% 42%,#14243a 0,#08101c 35%,#04070d 72%,#020307 100%)}.stars,.stars2{position:absolute;inset:0;background-image:radial-gradient(circle,#fff 0 1px,transparent 1.5px);background-size:83px 83px;opacity:.22}.stars2{background-size:137px 137px;opacity:.13;transform:translate(24px,15px)}.nebula{position:absolute;width:70%;height:55%;left:15%;top:15%;border-radius:50%;background:radial-gradient(ellipse,#4b1f5520 0,transparent 68%);filter:none}.moon{position:absolute;width:74px;height:74px;border-radius:50%;right:10%;top:15%;background:radial-gradient(circle at 35% 32%,#fff,#e7ebf0 52%,#b7c0ca 100%);box-shadow:0 0 30px #dfeaff25}.cloud{position:absolute;width:70%;height:100px;left:15%;bottom:-38px;border-radius:50%;background:radial-gradient(ellipse,#2a466833,transparent 68%);filter:none}.flightGlow{position:absolute;left:2%;bottom:9%;width:72%;height:74%;border-radius:50%;border:1px solid rgba(126,184,255,.10);box-shadow:0 0 80px rgba(91,157,255,.08),inset 0 0 80px rgba(91,157,255,.04);transform:rotate(-13deg);pointer-events:none}.flightGlow:after{content:&quot;&quot;;position:absolute;left:3%;top:12%;width:86%;height:70%;border-radius:50%;border-top:2px solid rgba(255,255,255,.12);filter:blur(1px)}.flightDust{position:absolute;left:0;right:0;bottom:0;height:42%;background:radial-gradient(ellipse at 50% 100%,rgba(84,128,181,.16),transparent 68%);filter:none;pointer-events:none}.speedLine{position:absolute;height:2px;border-radius:99px;background:linear-gradient(90deg,transparent,rgba(156,205,255,.45),transparent);opacity:.0;transform-origin:right center;animation:none}.speed1{width:120px;left:10%;bottom:28%;animation-delay:.1s}.speed2{width:85px;left:22%;bottom:38%;animation-delay:.45s}.speed3{width:150px;left:4%;bottom:48%;animation-delay:.72s}.planeWrap{position:absolute;left:7%;max-width:42%;bottom:14%;width:235px;height:132px;z-index:6;transform:rotate(-8deg);filter:drop-shadow(0 6px 10px rgba(0,0,0,.45));will-change:transform;transition:none}.planeSvg{width:100%;height:100%;overflow:visible}.exhaust{position:absolute;left:-32px;top:56px;width:118px;height:20px;border-radius:100%;background:radial-gradient(ellipse at 100% 50%,#ffffff 0 5%,#ffd6dd 8%,#ff536f 27%,rgba(255,61,90,.32) 52%,transparent 76%);filter:blur(4px);opacity:.9;animation:none}.exhaust:after{content:&quot;&quot;;position:absolute;left:-35px;top:4px;width:90px;height:12px;border-radius:100%;background:linear-gradient(90deg,transparent,rgba(255,107,130,.35),transparent);filter:blur(5px);animation:none}.planeWrap:after{content:&quot;&quot;;position:absolute;inset:18% 12% 30% 8%;border-radius:50%;background:radial-gradient(ellipse,rgba(255,255,255,.16),transparent 62%);mix-blend-mode:screen;pointer-events:none;animation:none}@keyframes planeSheen{from{opacity:.25;transform:translateX(-8px) scale(.96)}to{opacity:.65;transform:translateX(10px) scale(1.04)}}.enginePulse{position:absolute;left:1px;top:53px;width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:0 0 18px #ff4162,0 0 38px rgba(255,48,83,.45);animation:none}.bigmul span{font-size:clamp(58px,10vw,104px);font-weight:1000;letter-spacing:-5px;color:#ff5a70;text-shadow:0 0 35px rgba(255,54,80,.28),0 8px 30px rgba(0,0,0,.4)}.planeWrap{position:absolute;left:9%;bottom:15%;width:205px;height:115px;z-index:6;transform:rotate(-8deg);filter:drop-shadow(0 0 24px rgba(255,45,75,.52));will-change:left,bottom,transform}.planeSvg{width:100%;height:100%;overflow:visible}.exhaust{position:absolute;left:-18px;top:54px;width:85px;height:16px;border-radius:100%;background:linear-gradient(90deg,#ffedf1,#ff3d5c,transparent);filter:blur(5px);opacity:.9;animation:jet 0.45s infinite alternate}.bigmul{position:absolute;inset:0;display:grid;place-items:center;z-index:5;pointer-events:none;text-align:center}.bigmul span{font-size:clamp(58px,10vw,104px);font-weight:1000;letter-spacing:-5px;color:#ff3d59;text-shadow:0 0 35px #ff365044}.bigmul small{display:block;margin-top:-45px;font-size:11px;letter-spacing:3px;color:#c1c8d3;font-weight:1000}.betBadge{position:absolute;right:14px;top:14px;z-index:8;background:#07101b;border:1px solid #2b415c;border-radius:999px;padding:8px 11px;font-size:11px;font-weight:1000;box-shadow:0 10px 25px #0006}.betBadge strong{color:#48f17b}.toast{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%) scale(.7);z-index:30;opacity:0;pointer-events:none;background:linear-gradient(180deg,#28e86a,#11a946);color:#04150a;border:1px solid #8cffb0;border-radius:18px;padding:14px 24px;font-size:26px;font-weight:1000;box-shadow:0 16px 45px #0008,0 0 35px #31ef7035}.toast.show{animation:pop .8s ease both}.crashOverlay{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:radial-gradient(circle,#5b091433,transparent 50%),rgba(3,4,8,.35)}.crashOverlay.show{display:flex}.crashBox{background:#090c13;border:1px solid #5b1a27;border-radius:18px;padding:18px 28px;text-align:center;box-shadow:0 18px 55px #0009}.crashBox b{display:block;color:#ff5068;font-size:13px;letter-spacing:2px}.crashBox strong{display:block;font-size:46px;margin-top:4px}.controls{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(230px,.85fr);gap:12px;margin-top:12px}.betpanel{padding:15px;border-radius:17px;border:1px solid #1e2b3c;background:linear-gradient(180deg,#080d15,#050910)}.bettitle{font-size:16px;font-weight:1000;margin-bottom:10px}.betinput{display:flex;align-items:center;gap:8px;background:#03060b;border:1px solid #243145;border-radius:12px;padding:11px}.betinput input{width:100%;border:0;outline:0;background:transparent;color:#fff;font-size:21px;font-weight:1000}.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:9px}.quick button{border:1px solid #29405a;background:#0a1727;color:#eef4fc;border-radius:10px;padding:11px 5px;font-weight:900}.quick button.sel{background:#45101a;border-color:#ff405a;color:#fff}.betState{min-height:24px;margin:10px 2px 0;color:#aeb8c7;font-size:12px;font-weight:800}.activeBet{margin-top:9px;padding:10px 11px;border-radius:11px;background:#08160d;border:1px solid #205b34;color:#77ef9b;font-size:12px;font-weight:900}.primary,.cashout{width:100%;border:0;border-radius:12px;padding:15px;font-weight:1000;font-size:18px}.primary{background:linear-gradient(180deg,#36ea68,#13a744);color:#031407;box-shadow:0 0 24px #29df5c20}.cashout{position:relative;z-index:60;touch-action:manipulation;pointer-events:auto;margin-top:9px;background:linear-gradient(180deg,#49f27b,#15b64d);color:#031407;box-shadow:0 0 24px #29df5c22}.primary:disabled,.cashout:disabled{opacity:.48;cursor:not-allowed}.history{margin-top:12px}.historyHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.historyHead h4{margin:0;font-size:14px}.historyHead span{font-size:10px;color:#78879a}.histTable{display:block;overflow:hidden;border:1px solid #1b2838;border-radius:13px;background:#050a11}.histRow{display:grid;grid-template-columns:70px 1fr 90px 100px;gap:8px;align-items:center;padding:10px 11px;border-bottom:1px solid #15202d;font-size:11px}.histRow:last-child{border-bottom:0}.histRow.head{color:#748398;font-size:9px;text-transform:uppercase;letter-spacing:.8px;background:#070d15}.histTime,.histBet{color:#e9edf4;font-weight:900}.histMult{justify-self:start;padding:5px 8px;border-radius:8px;background:#0d1a10;border:1px solid #205b34;color:#48ef7b;font-weight:1000}.histMult.loss{background:#180a0e;border-color:#4a202a;color:#ff536b}.histProfit.win{color:#39e972;font-weight:1000}.histProfit.loss{color:#ff536b;font-weight:1000}.lower{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.smallbox{padding:12px;border-radius:15px;border:1px solid #1b2838;background:#070c13}.smallbox h4{margin:0 0 8px;font-size:13px}.sub{font-size:11px;color:#8f9aaa;line-height:1.45}.bottom{margin-top:12px;display:grid;grid-template-columns:repeat(5,1fr);gap:7px}.navbtn{padding:10px 6px;border:1px solid #1b2838;background:#070c13;color:#8d99aa;border-radius:12px;text-align:center;font-size:10px}.navbtn.active{color:#ffd76a;border-color:#4e3b14}.error{color:#ff7385;font-size:11px;margin-top:8px;min-height:15px}@keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}20%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}100%{opacity:0;transform:translate(-50%,-75%) scale(1)}}
 @media(max-width:850px){.layout{grid-template-columns:1fr}.side{display:none}.scene{height:390px}.controls{grid-template-columns:1fr}.lower{grid-template-columns:1fr}.hist{grid-template-columns:repeat(6,1fr)}}
 @media(max-width:520px){.wrap{padding:4px 7px 14px}.top{height:52px}.logo{font-size:22px}.topBalance{padding:7px 10px;font-size:12px}.icon{width:38px;height:38px}.scene{height:355px}.planeWrap{width:190px;height:108px;left:0;bottom:0;transform:translate3d(4%,-10%,0) rotate(-7deg) scale(.92)}.bigmul span{font-size:58px;letter-spacing:-3px}.betBadge{right:9px;top:9px}.quick button{padding:10px 3px}.hist{gap:5px}.histItem{font-size:10px;padding:9px 3px}.bottom{grid-template-columns:repeat(5,1fr)}}
+
+/* Final mobile-performance pass */
+html,body{touch-action:manipulation;-webkit-text-size-adjust:100%;overscroll-behavior:none}
+.scene{contain:layout paint;overflow:hidden}
+.nebula,.shoot,.particle,.speedLine,.flightGlow{animation:none!important;filter:none!important}
+.stars,.stars2,.moon,.cloud{animation:none!important;transform:none!important}
+.planeWrap{will-change:transform;transform-style:flat!important;filter:drop-shadow(0 0 10px rgba(255,45,75,.30))!important}
+.planeSvg{will-change:auto!important;filter:none!important}
+.exhaust,.enginePulse{animation:none!important;filter:none!important;opacity:.75}
+.toast{z-index:50}
+@media(max-width:720px){.planeWrap{width:330px!important;height:176px!important;left:0!important;bottom:10%!important;transform:rotate(-8deg) scale(.46)!important}.scene{height:380px!important}.bigmul span{font-size:clamp(52px,16vw,78px)!important}.betbar{grid-template-columns:1fr!important}.betpanel{min-width:0!important;overflow:hidden}.quick{grid-template-columns:repeat(4,1fr)!important}.cashout,.primary{min-height:58px!important}}
 &lt;/style&gt;
 &lt;/head&gt;
 &lt;body&gt;
@@ -114,84 +125,72 @@ const names=['Player***12','Player***48','Player***73','Player***26','Player***9
 &lt;/div&gt;
 &lt;script&gt;
 const $=s=&gt;document.querySelector(s), $$=s=&gt;[...document.querySelectorAll(s)];
-let balance=0, phase=&#x27;bet&#x27;, m=1, crashAt=0, round=542786, t0=0, bet=100, betPlaced=false, cashed=false, sound=true;
-let results=[2.34,1.76,3.89,1.20,4.18,1.53,2.21,1.68,5.43,1.33];
-let history=[{bet:500,mult:1.96,profit:480,win:true},{bet:300,mult:2.35,profit:405,win:true},{bet:800,mult:null,profit:-800,win:false},{bet:200,mult:1.28,profit:56,win:true},{bet:1000,mult:3.42,profit:2420,win:true},{bet:500,mult:null,profit:-500,win:false}];
-const players=[[&#x27;R&#x27;,&#x27;Rohit&#x27;,1650],[&#x27;A&#x27;,&#x27;Arjun&#x27;,1200],[&#x27;P&#x27;,&#x27;Player_786&#x27;,900],[&#x27;V&#x27;,&#x27;Vikram&#x27;,750],[&#x27;H&#x27;,&#x27;HappyBoy&#x27;,650],[&#x27;K&#x27;,&#x27;Karan&#x27;,500],[&#x27;S&#x27;,&#x27;Suraj&#x27;,350]];
+let balance=0,phase=&#x27;bet&#x27;,m=1,bet=100,betPlaced=false,cashed=false,roundId=&#x27;&#x27;,history=[],serverOffset=0,latestState=null,raf=0,refreshTimer=0,busy=false,sound=true;
 function money(n){return Math.max(0,Math.floor(Number(n)||0)).toLocaleString(&#x27;en-IN&#x27;)}
-function tone(freq=500,d=.06){if(!sound)return;try{const A=window.AudioContext||window.webkitAudioContext;if(!window.__a)window.__a=new A();const c=window.__a,o=c.createOscillator(),g=c.createGain();o.frequency.value=freq;g.gain.value=.025;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+d)}catch{}}
-function paint(){
-  const el=$('#history'); if(!el)return;
-  el.innerHTML='<div class="histRow head"><span>TIME</span><span>BET</span><span>MULTIPLIER</span><span>RESULT</span></div>'+history.slice(0,6).map((h,i)=>{
-    const t=h.time||new Date(Date.now()-i*37000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    const betText='₹'+money(h.bet??h.v);
-    const multText=h.mult?Number(h.mult).toFixed(2)+'x':(h.win?'—':'CRASH');
-    const profit=(h.profit??(h.win?h.v:-h.v));
-    return `<div class="histRow"><span class="histTime">${t}</span><span class="histBet">${betText}</span><span class="histMult ${h.win?'':'loss'}">${multText}</span><span class="histProfit ${h.win?'win':'loss'}">${profit>=0?'+':'-'}₹${money(Math.abs(profit))}</span></div>`;
-  }).join('');
+function tone(freq=520,d=.06){if(!sound)return;try{const A=window.AudioContext||window.webkitAudioContext;if(!window.__a)window.__a=new A();const c=window.__a,o=c.createOscillator(),g=c.createGain();o.frequency.value=freq;g.gain.value=.024;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+d)}catch{}}
+async function api(url,opt={}){const r=await fetch(url,{credentials:&#x27;same-origin&#x27;,cache:&#x27;no-store&#x27;,headers:{&#x27;Content-Type&#x27;:&#x27;application/json&#x27;,...(opt.headers||{})},...opt});const x=await r.json().catch(()=&gt;({}));if(!r.ok)throw new Error(x.error||&#x27;Request failed&#x27;);return x}
+function setBalance(v){const n=Number(v||0);const b=$(&#x27;#balance&#x27;);if(b)b.textContent=money(n);const top=document.querySelector(&#x27;.topBalance .v&#x27;);if(top)top.textContent=money(n)+&#x27;.00&#x27;}
+function paintHistory(){
+ const rows=(history||[]).slice(0,6).map((x,i)=&gt;{
+  const win=x.status===&#x27;CASHED_OUT&#x27;; const betV=Number(x.stake||0); const payout=Number(x.payout||0); const profit=win?payout-betV:-betV;
+  const tm=x.settledAt||x.placedAt||&#x27;&#x27;; const time=tm?new Date(tm).toLocaleTimeString([], {hour:&#x27;2-digit&#x27;,minute:&#x27;2-digit&#x27;,second:&#x27;2-digit&#x27;}):&#x27;&#x27;;
+  const mult=win?(Number(x.cashoutMultiplier||0).toFixed(2)+&#x27;x&#x27;):(x.settleMultiplier?(Number(x.settleMultiplier).toFixed(2)+&#x27;x&#x27;):&#x27;—&#x27;);
+  return `&lt;div class=&quot;histRow&quot;&gt;&lt;span class=&quot;histTime&quot;&gt;${time}&lt;/span&gt;&lt;span class=&quot;histBet&quot;&gt;₹${money(betV)}&lt;/span&gt;&lt;span class=&quot;histMult ${win?&#x27;&#x27;:&#x27;loss&#x27;}&quot;&gt;${mult}&lt;/span&gt;&lt;span class=&quot;histProfit ${win?&#x27;win&#x27;:&#x27;loss&#x27;}&quot;&gt;${profit&gt;=0?&#x27;+&#x27;:&#x27;-&#x27;}₹${money(Math.abs(profit))}&lt;/span&gt;&lt;/div&gt;`;
+ }).join(&#x27;&#x27;);
+ const el=$(&#x27;#history&#x27;); if(el)el.innerHTML=&#x27;&lt;div class=&quot;histRow head&quot;&gt;&lt;span&gt;TIME&lt;/span&gt;&lt;span&gt;BET&lt;/span&gt;&lt;span&gt;MULTIPLIER&lt;/span&gt;&lt;span&gt;RESULT&lt;/span&gt;&lt;/div&gt;&#x27;+(rows||&#x27;&lt;div class=&quot;histRow&quot;&gt;&lt;span colspan=&quot;4&quot; class=&quot;muted&quot;&gt;No bets yet&lt;/span&gt;&lt;/div&gt;&#x27;);
 }
-async function loadBalance(){const st=$(&#x27;#apiStatus&#x27;);try{const r=await fetch(&#x27;/api/me&#x27;,{cache:&#x27;no-store&#x27;,credentials:&#x27;same-origin&#x27;});const x=await r.json();if(x&amp;&amp;x.loggedIn){balance=Number(x.user?.balance||0);$(&#x27;#balance&#x27;).textContent=money(balance);if(st){st.textContent=&#x27;●&#x27;;st.style.color=&#x27;#48f17b&#x27;;st.title=&#x27;Balance API connected&#x27;}}else{if(st){st.textContent=&#x27;●&#x27;;st.style.color=&#x27;#ff596f&#x27;;st.title=&#x27;Login required&#x27;}}}catch(e){if(st){st.textContent=&#x27;●&#x27;;st.style.color=&#x27;#ff596f&#x27;;st.title=&#x27;API unavailable&#x27;}}}
-function syncParent(){try{parent.postMessage({type:'AVIATOR_BALANCE',balance},location.origin)}catch{}}
-window.addEventListener('message',e=>{if(e.origin!==location.origin)return;if(e.data?.type==='REFRESH_ACCOUNT_BALANCE')loadBalance();});
-function setState(){
-  $(&#x27;#placeBet&#x27;).textContent=`PLACE BET ₹${money(bet)}`;
-  $(&#x27;#betState&#x27;).textContent=betPlaced?(cashed?&#x27;Bet cashed out&#x27;:&#x27;Bet placed&#x27;):&#x27;No active bet&#x27;;
-  $(&#x27;#activeBet&#x27;).style.display=betPlaced&amp;&amp;!cashed?&#x27;block&#x27;:&#x27;none&#x27;;
-  if(betPlaced&amp;&amp;!cashed)$(&#x27;#activeBet&#x27;).textContent=`BET ₹${money(bet)}  •  ${m.toFixed(2)}x  •  CASH OUT AVAILABLE`;
-  $(&#x27;#placeBet&#x27;).style.display=phase===&#x27;bet&#x27;&amp;&amp;!betPlaced?&#x27;block&#x27;:&#x27;none&#x27;;
-  $(&#x27;#cashoutBtn&#x27;).style.display=phase===&#x27;fly&#x27;&amp;&amp;betPlaced&amp;&amp;!cashed?&#x27;block&#x27;:&#x27;none&#x27;;
-  $(&#x27;#cashoutBtn&#x27;).textContent=`CASH OUT ₹${money(bet*m)}`;
-  $(&#x27;#betBadge&#x27;).textContent=betPlaced&amp;&amp;!cashed?`BET ₹${money(bet)}`:&#x27;NO ACTIVE BET&#x27;;
-  $(&#x27;#betBadge&#x27;).style.color=betPlaced&amp;&amp;!cashed?&#x27;#48f17b&#x27;:&#x27;#b7c2d1&#x27;;
+function paintQuick(){ $$(&#x27;.quick button&#x27;).forEach(b=&gt;{b.classList.toggle(&#x27;sel&#x27;,Number(b.dataset.v)===bet)}); }
+function render(){
+ const place=$(&#x27;#placeBet&#x27;),cash=$(&#x27;#cashoutBtn&#x27;),st=$(&#x27;#betState&#x27;),active=$(&#x27;#activeBet&#x27;);
+ if(phase===&#x27;bet&#x27;){
+  if(place){place.style.display=betPlaced?&#x27;none&#x27;:&#x27;block&#x27;;place.disabled=betPlaced||busy;place.textContent=`PLACE BET ₹${money(bet)}`}
+  if(cash){cash.style.display=&#x27;none&#x27;}
+  if(st)st.textContent=betPlaced?`Bet placed · ₹${money(bet)}`:&#x27;No active bet&#x27;;
+ }else if(phase===&#x27;fly&#x27;){
+  if(place)place.style.display=&#x27;none&#x27;;
+  if(cash){cash.style.display=betPlaced&amp;&amp;!cashed?&#x27;block&#x27;:&#x27;none&#x27;;cash.disabled=busy;cash.textContent=`CASH OUT ₹${money(bet*m)}`}
+  if(st)st.textContent=betPlaced&amp;&amp;!cashed?`Active bet · ₹${money(bet)} · ${m.toFixed(2)}x`:cashed?&#x27;Cash out complete&#x27;:&#x27;No active bet&#x27;;
+ }else{
+  if(place)place.style.display=&#x27;none&#x27;; if(cash)cash.style.display=&#x27;none&#x27;; if(st)st.textContent=cashed?&#x27;Cash out complete&#x27;:&#x27;Round crashed · waiting for next round&#x27;;
+ }
+ if(active){active.style.display=betPlaced&amp;&amp;!cashed?&#x27;block&#x27;:&#x27;none&#x27;;if(betPlaced&amp;&amp;!cashed)active.textContent=`BET ₹${money(bet)} • ${m.toFixed(2)}x • CASH OUT AVAILABLE`}
 }
-$$(&#x27;.quick button&#x27;).forEach(b=&gt;b.onclick=()=&gt;{bet=Number(b.dataset.v);$(&#x27;#stake&#x27;).value=bet;$$(&#x27;.quick button&#x27;).forEach(x=&gt;x.classList.remove(&#x27;sel&#x27;));b.classList.add(&#x27;sel&#x27;);setState();tone(520)});
-$(&#x27;#stake&#x27;).oninput=()=&gt;{bet=Math.max(1,Number($(&#x27;#stake&#x27;).value||0));setState()};
-$(&#x27;#sound&#x27;).onclick=()=&gt;{sound=!sound;$(&#x27;#sound&#x27;).textContent=sound?&#x27;🔊&#x27;:&#x27;🔇&#x27;;if(sound)tone(700)};
-$(&#x27;#placeBet&#x27;).onclick=()=&gt;{
-  $(&#x27;#error&#x27;).textContent=&#x27;&#x27;;
-  if(phase!==&#x27;bet&#x27;||betPlaced)return;
-  if(!Number.isFinite(bet)||bet&lt;=0){$(&#x27;#error&#x27;).textContent=&#x27;Enter a valid bet amount.&#x27;;return}
-  if(bet&gt;balance){$(&#x27;#error&#x27;).textContent=&#x27;Insufficient balance.&#x27;;tone(180,.12);return}
-  // UI-side debit only: the existing backend/API is intentionally untouched.
-  balance=Math.max(0,balance-bet);$(&#x27;#balance&#x27;).textContent=money(balance);syncParent();
-  betPlaced=true;setState();$(&#x27;#betState&#x27;).textContent=`Bet placed · ₹${money(bet)}`;$(&#x27;#roundNote&#x27;).textContent=&#x27;Your bet is active. Cash Out is available during flight.&#x27;;tone(760,.08);
-};
-$(&#x27;#cashoutBtn&#x27;).onclick=()=&gt;{
-  if(phase!==&#x27;fly&#x27;||!betPlaced||cashed)return;
-  cashed=true;const win=Math.floor(bet*m);balance+=win;$(&#x27;#balance&#x27;).textContent=money(balance);syncParent();history.unshift({bet, mult:m, profit:win-bet, win:true, time:new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})});history=history.slice(0,6);$(&#x27;#toast&#x27;).textContent=`+₹${money(win)}`;$(&#x27;#toast&#x27;).classList.remove(&#x27;show&#x27;);void $(&#x27;#toast&#x27;).offsetWidth;$(&#x27;#toast&#x27;).classList.add(&#x27;show&#x27;);$(&#x27;#roundNote&#x27;).textContent=`Cashed out at ${m.toFixed(2)}x.`;tone(980,.14);setState();paint();
-};
-function startBet(){
-  phase=&#x27;bet&#x27;;betPlaced=false;cashed=false;m=1;crashAt=Math.max(1.35,Math.min(8,1.25+Math.pow(Math.random(),1.25)*6.2));
-  $(&#x27;#status&#x27;).textContent=&#x27;● BETTING OPEN&#x27;;$(&#x27;#status&#x27;).style.color=&#x27;#7ce59c&#x27;;$(&#x27;#status&#x27;).style.background=&#x27;#152113&#x27;;$(&#x27;#status&#x27;).style.borderColor=&#x27;#2b5d32&#x27;;
-  $(&#x27;#caption&#x27;).textContent=&#x27;PLACE YOUR BET&#x27;;$(&#x27;#roundStatus&#x27;).textContent=&#x27;Betting window is open.&#x27;;$(&#x27;#roundNote&#x27;).textContent=&#x27;Place your bet before takeoff.&#x27;;$(&#x27;#multiplier&#x27;).textContent=&#x27;1.00x&#x27;;$(&#x27;#roundMul&#x27;).textContent=&#x27;1.00x&#x27;;$(&#x27;#crashOverlay&#x27;).classList.remove(&#x27;show&#x27;);setState();
-  setTimeout(fly,3000);
+function animate(now){
+ if(!latestState||phase!==&#x27;fly&#x27;){return}
+ const s=latestState; const nowServer=Date.now()+serverOffset;
+ const denom=Math.max(1,s.crashAtMs-s.bettingEndsAt);const p=Math.max(0,Math.min(1,(nowServer-s.bettingEndsAt)/denom));
+ const e=p*p*(3-2*p), x=6+e*54, y=11+e*24, bank=-8+e*5;
+ const plane=$(&#x27;#plane&#x27;);if(plane){plane.style.left=x+&#x27;%&#x27;;plane.style.bottom=Math.min(42,y)+&#x27;%&#x27;;plane.style.transform=`translate3d(0,0,0) rotate(${bank}deg) scale(.46)`}
+ raf=requestAnimationFrame(animate)
 }
-function fly(){phase=&#x27;fly&#x27;;t0=performance.now();$(&#x27;#status&#x27;).textContent=&#x27;● FLYING&#x27;;$(&#x27;#status&#x27;).style.color=&#x27;#ff6a7c&#x27;;$(&#x27;#status&#x27;).style.background=&#x27;#270a10&#x27;;$(&#x27;#status&#x27;).style.borderColor=&#x27;#4c1824&#x27;;$(&#x27;#caption&#x27;).textContent=&#x27;FLYING HIGH!&#x27;;$(&#x27;#roundNote&#x27;).textContent=betPlaced?&#x27;Your bet is active. Cash out while the round is flying.&#x27;:&#x27;No active bet.&#x27;;tone(620,.09);requestAnimationFrame(loop)}
-function loop(now){
-  if(phase!==&#x27;fly&#x27;)return;
-  const sec=(now-t0)/1000;m=Math.exp(sec*.17);$(&#x27;#multiplier&#x27;).textContent=m.toFixed(2)+&#x27;x&#x27;;$(&#x27;#roundMul&#x27;).textContent=m.toFixed(2)+&#x27;x&#x27;;
-  if(betPlaced&amp;&amp;!cashed)$(&#x27;#cashoutBtn&#x27;).textContent=`CASH OUT ₹${money(bet*m)}`;
-  const plane=$(&#x27;#plane&#x27;);
-  const progress=Math.min(1,sec/12);
-  const ease=progress*progress*(3-2*progress);
-  const x=4+ease*72;
-  const y=10+ease*52+Math.sin(progress*Math.PI)*4;
-  const bank=-7-progress*11;
-  const bob=Math.sin(sec*2.2)*1.4;
-  const scale=window.innerWidth&lt;520?.92:1;
-  plane.style.transform=`translate3d(${x}%,${-y}%,0) rotate(${bank}deg) translateY(${bob}px) scale(${scale}) translateZ(0)`;
-  if(m&gt;=crashAt){endRound();return}requestAnimationFrame(loop)
+function startRaf(){cancelAnimationFrame(raf);raf=requestAnimationFrame(animate)}
+async function sync(){
+ try{
+  const x=await api(&#x27;/api/aviator/state&#x27;);serverOffset=Number(x.state?.serverTime||Date.now())-Date.now();setBalance(x.balance);history=x.history||[];paintHistory();
+  if(x.state){latestState=x.state;roundId=x.state.roundId;phase=x.state.phase;m=Number(x.state.multiplier||1);const rm=$(&#x27;#roundId&#x27;);if(rm)rm.textContent=roundId;const mm=$(&#x27;#multiplier&#x27;);if(mm)mm.textContent=m.toFixed(2)+&#x27;x&#x27;;const st=$(&#x27;#status&#x27;);if(st){st.textContent=phase===&#x27;bet&#x27;?&#x27;● BETTING OPEN&#x27;:phase===&#x27;fly&#x27;?&#x27;● FLYING&#x27;:&#x27;● CRASHED&#x27;}const cap=$(&#x27;#caption&#x27;);if(cap)cap.textContent=phase===&#x27;bet&#x27;?&#x27;PLACE YOUR BET&#x27;:phase===&#x27;fly&#x27;?&#x27;FLYING HIGH!&#x27;:&#x27;CRASHED&#x27;;
+   if(x.bet){betPlaced=true;bet=Number(x.bet.stake);cashed=x.bet.status!==&#x27;OPEN&#x27;} else {betPlaced=false;cashed=false}
+  }
+  render(); if(phase===&#x27;fly&#x27;)startRaf(); else cancelAnimationFrame(raf);
+ }catch(e){const er=$(&#x27;#error&#x27;);if(er)er.textContent=e.message}
 }
-function endRound(){
-  phase=&#x27;crash&#x27;;$(&#x27;#status&#x27;).textContent=&#x27;● CRASHED&#x27;;$(&#x27;#status&#x27;).style.color=&#x27;#ff8693&#x27;;$(&#x27;#status&#x27;).style.background=&#x27;#350a10&#x27;;$(&#x27;#status&#x27;).style.borderColor=&#x27;#5b1a27&#x27;;$(&#x27;#caption&#x27;).textContent=&#x27;CRASHED&#x27;;$(&#x27;#multiplier&#x27;).textContent=crashAt.toFixed(2)+&#x27;x&#x27;;$(&#x27;#roundMul&#x27;).textContent=crashAt.toFixed(2)+&#x27;x&#x27;;$(&#x27;#crashValue&#x27;).textContent=crashAt.toFixed(2)+&#x27;x&#x27;;$(&#x27;#crashOverlay&#x27;).classList.add(&#x27;show&#x27;);
-  if(betPlaced&amp;&amp;!cashed){history.unshift({bet, mult:null, profit:-bet, win:false, time:new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})});history=history.slice(0,6);$(&#x27;#roundNote&#x27;).textContent=`Bet lost at ${crashAt.toFixed(2)}x.`;$(&#x27;#betState&#x27;).textContent=&#x27;Bet lost&#x27;;tone(110,.2)}
-  $(&#x27;#roundStatus&#x27;).textContent=&#x27;Round ended. New betting window will open automatically.&#x27;;setState();paint();round++;$(&#x27;#roundId&#x27;).textContent=round;results.unshift(crashAt);results=results.slice(0,10);paint();setTimeout(startBet,2200)
+async function place(){
+ if(busy||phase!==&#x27;bet&#x27;||betPlaced)return; const stake=Math.floor(Number($(&#x27;#stake&#x27;)?.value||bet)); if(!Number.isFinite(stake)||stake&lt;10){$(&#x27;#error&#x27;).textContent=&#x27;Enter a valid bet amount.&#x27;;return}
+ busy=true;render();
+ try{const x=await api(&#x27;/api/aviator/bet&#x27;,{method:&#x27;POST&#x27;,body:JSON.stringify({stake})});bet=stake;betPlaced=true;cashed=false;setBalance(x.balance);tone(720,.08);await sync()}catch(e){$(&#x27;#error&#x27;).textContent=e.message;tone(180,.12)}finally{busy=false;render()}
 }
-paint();loadBalance().then(syncParent);setState();startBet();
+async function cashout(){
+ if(busy||phase!==&#x27;fly&#x27;||!betPlaced||cashed)return;busy=true;render();
+ try{const x=await api(&#x27;/api/aviator/cashout&#x27;,{method:&#x27;POST&#x27;,body:&#x27;{}&#x27;});cashed=true;setBalance(x.balance);const toast=$(&#x27;#toast&#x27;);if(toast){toast.textContent=`+₹${money(x.payout-bet)}`;toast.classList.remove(&#x27;show&#x27;);void toast.offsetWidth;toast.classList.add(&#x27;show&#x27;)};tone(980,.12);await sync()}catch(e){$(&#x27;#error&#x27;).textContent=e.message;tone(180,.12)}finally{busy=false;render()}
+}
+$$(&#x27;.quick button&#x27;).forEach(b=&gt;b.addEventListener(&#x27;click&#x27;,()=&gt;{bet=Number(b.dataset.v);const input=$(&#x27;#stake&#x27;);if(input)input.value=bet;paintQuick();render()}));
+$(&#x27;#stake&#x27;)?.addEventListener(&#x27;input&#x27;,e=&gt;{bet=Math.max(0,Math.floor(Number(e.target.value||0)));paintQuick();render()});
+$(&#x27;#placeBet&#x27;)?.addEventListener(&#x27;click&#x27;,place);$(&#x27;#cashoutBtn&#x27;)?.addEventListener(&#x27;click&#x27;,cashout);
+$(&#x27;#soundBtn&#x27;)?.addEventListener(&#x27;click&#x27;,()=&gt;{sound=!sound;$(&#x27;#soundBtn&#x27;).textContent=sound?&#x27;🔊&#x27;:&#x27;🔇&#x27;});
+$(&#x27;#audio&#x27;)?.addEventListener(&#x27;click&#x27;,()=&gt;{$(&#x27;#soundBtn&#x27;)?.click()});
+async function refresh(){await sync();refreshTimer=setTimeout(refresh,1500)}
+paintQuick();paintHistory();render();refresh();
 &lt;/script&gt;
-&lt;/body&gt;
-&lt;/html&gt;
-"></iframe>
+&lt;/body&gt;&lt;/html&gt;"></iframe>
 </div>
 <script>
 async function openAviator(){const o=document.getElementById('aviatorOverlay');o.classList.add('show');o.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'; const f=document.getElementById('aviatorFrame'); try{f.contentWindow.postMessage({type:'REFRESH_ACCOUNT_BALANCE'}, location.origin)}catch{} }

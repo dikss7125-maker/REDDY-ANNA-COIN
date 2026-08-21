@@ -93,8 +93,18 @@ app.post('/api/aviator/bet',need,(req,res)=>{
 app.post('/api/aviator/cashout',need,(req,res)=>{
   const st=aviatorState();const b=activeAviatorBet(req.user.id);
   if(!b)return res.status(404).json({error:'No active Aviator bet.'});
-  if(st.phase!=='fly')return res.status(409).json({error:'Cash out is not available.'});
-  const payout=Math.floor(b.stake*st.multiplier);req.user.balance+=payout;b.status='CASHED_OUT';b.cashoutMultiplier=st.multiplier;b.payout=payout;b.settledAt=now();
+  if(st.phase!=='fly'){
+    // Small server-side grace for network latency around the exact crash boundary.
+    const age=Date.now()-Number(st.crashAtMs||0);
+    if(st.phase!=='crash' || age<0 || age>180)return res.status(409).json({error:'Cash out is not available.'});
+    const payout=Math.floor(b.stake*st.multiplier);
+    req.user.balance+=payout;b.status='CASHED_OUT';b.cashoutMultiplier=st.multiplier;b.payout=payout;b.settledAt=now();
+    db.wallet.push({id:id('TX'),uid:req.user.id,amount:payout,type:'AVIATOR_WIN',note:'Aviator cash out '+st.multiplier.toFixed(2)+'x',time:now(),balance:req.user.balance});
+    db.games.push({id:id('GAME'),uid:req.user.id,game:'aviator',stake:b.stake,mult:st.multiplier,win:payout,result:st.multiplier.toFixed(2)+'x',time:now(),balance:req.user.balance,status:'CASHED_OUT'});save();
+    return res.json({ok:true,payout,multiplier:st.multiplier,balance:req.user.balance,bet:b});
+  }
+  const payout=Math.floor(b.stake*st.multiplier);
+  req.user.balance+=payout;b.status='CASHED_OUT';b.cashoutMultiplier=st.multiplier;b.payout=payout;b.settledAt=now();
   db.wallet.push({id:id('TX'),uid:req.user.id,amount:payout,type:'AVIATOR_WIN',note:'Aviator cash out '+st.multiplier.toFixed(2)+'x',time:now(),balance:req.user.balance});
   db.games.push({id:id('GAME'),uid:req.user.id,game:'aviator',stake:b.stake,mult:st.multiplier,win:payout,result:st.multiplier.toFixed(2)+'x',time:now(),balance:req.user.balance,status:'CASHED_OUT'});save();
   res.json({ok:true,payout,multiplier:st.multiplier,balance:req.user.balance,bet:b});
