@@ -266,6 +266,128 @@ async function startup(){
   app.listen(PORT,'0.0.0.0',()=>console.log(`MAHADEV BOOK listening on ${PORT}`));
 }
 
+
+// BigBang Casino API integration. Uses the existing player wallet as the source of truth.
+const BIGBANG_API_KEY=String(process.env.BIGBANG_API_KEY||'').trim();
+const BIGBANG_BASE='https://api.bigbangcasino.bet';
+const BIGBANG_CURRENCY=String(process.env.BIGBANG_CURRENCY||'INR').trim().toUpperCase();
+const BIGBANG_MODE=String(process.env.BIGBANG_MODE||'real').trim().toLowerCase()==='fun'?'fun':'real';
+if(!Array.isArray(db.bigbangTransactions))db.bigbangTransactions=[];
+
+async function bigbangFetch(pathname,options={}){
+  if(!BIGBANG_API_KEY) throw Object.assign(new Error('BIGBANG_API_KEY is not configured.'),{status:503});
+  const r=await fetch(BIGBANG_BASE+pathname,{...options,headers:{'x-api-key':BIGBANG_API_KEY,'content-type':'application/json',...(options.headers||{})}});
+  const text=await r.text();
+  let body={};try{body=text?JSON.parse(text):{}}catch{body={raw:text}};
+  if(!r.ok) throw Object.assign(new Error(body?.error?.message||body?.message||`BigBang API returned ${r.status}`),{status:r.status,body});
+  return body;
+}
+
+function bigbangCatalogArray(body){
+  if(Array.isArray(body))return body;
+  return Array.isArray(body?.games)?body.games:Array.isArray(body?.data)?body.data:Array.isArray(body?.data?.games)?body.data.games:[];
+}
+function normalizeGame(g){
+  return {
+    id:String(g?.id??g?.game_id??g?.gameId??''),
+    name:String(g?.name??g?.title??g?.game_name??'Casino Game'),
+    provider:String(g?.provider??g?.provider_name??g?.vendor??'Casino'),
+    category:String(g?.category??g?.type??g?.game_type??'Casino'),
+    thumbnail:String(g?.thumbnail??g?.thumbnail_url??g?.image??g?.image_url??g?.assets?.thumbnail??''),
+    banner:String(g?.banner??g?.banner_url??g?.assets?.banner??''),
+    rtp:Number(g?.rtp??g?.RTP??0)||0,
+    mode:String(g?.mode??'standard')
+  };
+}
+const BIGBANG_FEATURE_NAMES=[
+  'Gates of Olympus','Sweet Bonanza','Big Bass Bonanza','Book of Ra Deluxe','Koi Gate',
+  'Hot Hot Fruit','Book of Santa','Aztec Sun Hold and Win','Sugar Rush','Wolf Gold',
+  'Plinko','Crazy Time','Lightning Roulette','Blackjack','Aviator'
+];
+function chooseBigbangFeatured(games){
+  const normalized=games.map(normalizeGame).filter(g=>g.id);
+  const out=[],used=new Set();
+  for(const wanted of BIGBANG_FEATURE_NAMES){
+    const hit=normalized.find(g=>!used.has(g.id)&&g.name.toLowerCase().includes(wanted.toLowerCase()));
+    if(hit){out.push(hit);used.add(hit.id)}
+  }
+  normalized.sort((a,b)=>(b.rtp||0)-(a.rtp||0));
+  for(const g of normalized){if(out.length>=15)break;if(!used.has(g.id)){out.push(g);used.add(g.id)}}
+  return out.slice(0,15);
+}
+
+app.get('/api/bigbang/featured-games',need,async(req,res)=>{
+  try{
+    const body=await bigbangFetch('/games');
+    const games=chooseBigbangFeatured(bigbangCatalogArray(body));
+    res.set('Cache-Control','no-store');
+    res.json({ok:true,count:games.length,games});
+  }catch(e){console.error('BigBang catalog error:',e?.message||e);res.status(e?.status||502).json({error:e?.message||'BigBang catalog unavailable.'});}
+});
+
+app.post('/api/bigbang/launch',need,async(req,res)=>{
+  try{
+    const gameId=cleanText(req.body.game_id||req.body.gameId,120);
+    if(!gameId)return res.status(400).json({error:'Game ID is required.'});
+    const body=await bigbangFetch('/launch',{method:'POST',body:JSON.stringify({
+      game_id:gameId,player_id:req.user.id,currency:BIGBANG_CURRENCY,mode:BIGBANG_MODE
+    })});
+    const launchUrl=body?.launch_url||body?.game_url||body?.url||body?.data?.launch_url||body?.data?.game_url||body?.data?.url;
+    if(!launchUrl)return res.status(502).json({error:'BigBang did not return a launch URL.',response:body});
+    res.json({ok:true,game_id:gameId,launch_url:launchUrl,currency:BIGBANG_CURRENCY,mode:BIGBANG_MODE,balance:Number(req.user.balance||0)});
+  }catch(e){console.error('BigBang launch error:',e?.message||e);res.status(e?.status||502).json({error:e?.message||'BigBang launch failed.'});}
+});
+
+function verifyBigbangSignature(req){
+  const secret=String(process.env.BIGBANG_WEBHOOK_SECRET||'').trim();
+  if(!secret)return true; // Sandbox can be wired first; set the webhook secret before production use.
+  const supplied=String(req.headers['x-bigbang-signature']||req.headers['x-webhook-signature']||req.headers['x-signature']||'').replace(/^sha256=/,'');
+  if(!supplied)return false;
+  const raw=JSON.stringify(req.body||{});
+  const expected=crypto.createHmac('sha256',secret).update(raw).digest('hex');
+  return supplied.length===expected.length&&crypto.timingSafeEqual(Buffer.from(supplied),Buffer.from(expected));
+}
+function bigbangOperation(req,fallback=''){
+  return String(req.body?.operation||req.body?.action||req.body?.type||req.query?.operation||fallback).toLowerCase();
+}
+function bigbangPlayerId(req){return cleanText(req.body?.player_id||req.body?.playerId||req.body?.user_id||req.body?.uid||req.body?.player?.id,80).toUpperCase()}
+function bigbangAmount(req){
+  const b=req.body||{};
+  const raw=b.amount??b.delta??b.stake??b.bet_amount??b.win_amount??b.payout??b.value;
+  const n=Number(raw);return Number.isFinite(n)?n:0;
+}
+function bigbangTxId(req,op){return cleanText(req.body?.transaction_id||req.body?.transactionId||req.body?.tx_id||req.body?.txId||req.body?.round_id||req.body?.roundId||`${op}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,160)}
+function bigbangWalletCallback(req,res,fallbackOp=''){
+  if(!verifyBigbangSignature(req))return res.status(401).json({error:'Invalid BigBang callback signature.'});
+  const uid=bigbangPlayerId(req);const u=db.users[uid];
+  if(!u)return res.status(404).json({error:'Player not found.'});
+  const op=bigbangOperation(req,fallbackOp);
+  const amount=Math.abs(bigbangAmount(req));
+  const txid=bigbangTxId(req,op);
+  if(op==='authenticate'||op==='balance'||op==='get_balance')return res.json({ok:true,balance:Number(u.balance||0),currency:BIGBANG_CURRENCY});
+  if(!['bet','win','rollback','refund','debit','credit'].includes(op))return res.status(400).json({error:'Unsupported BigBang wallet operation.'});
+  const key=`${op}:${txid}`;
+  if(db.bigbangTransactions.some(x=>x.key===key))return res.json({ok:true,balance:Number(u.balance||0),duplicate:true});
+  if(!Number.isFinite(amount)||amount<0||amount>100000000)return res.status(400).json({error:'Invalid callback amount.'});
+  let delta=0;
+  if(op==='bet'||op==='debit'){
+    if(u.balance<amount)return res.status(400).json({error:'Insufficient coins.'});
+    delta=-amount;
+  }else{
+    delta=amount;
+  }
+  u.balance+=delta;
+  const game=cleanText(req.body?.game||req.body?.game_name||req.body?.game_id||'bigbang',80);
+  db.bigbangTransactions.push({key,uid,operation:op,transactionId:txid,amount,delta,game,time:now(),balance:u.balance});
+  db.wallet.push({id:id('BBTX'),uid,amount:delta,type:`BIGBANG_${op.toUpperCase()}`,note:game,time:now(),balance:u.balance});
+  db.games.push({id:id('BBGAME'),uid:req.user?.id||uid,game,stake:op==='bet'?amount:0,payout:(op==='win'||op==='credit'||op==='rollback'||op==='refund')?amount:0,result:op,time:now(),balance:u.balance,source:'bigbang',transactionId:txid});
+  save();
+  res.json({ok:true,balance:Number(u.balance||0),currency:BIGBANG_CURRENCY});
+}
+app.post('/api/bigbang/wallet',(req,res)=>bigbangWalletCallback(req,res));
+app.post('/api/bigbang/balance',(req,res)=>bigbangWalletCallback(req,res,'balance'));
+app.post('/api/bigbang/change',(req,res)=>bigbangWalletCallback(req,res));
+
 // Server-authoritative virtual casino wallet endpoints.
 app.get('/api/casino/balance',need,(req,res)=>res.json({ok:true,balance:Number(req.user.balance||0)}));
 app.post('/api/casino/bet',need,(req,res)=>{
