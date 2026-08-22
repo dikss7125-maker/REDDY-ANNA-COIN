@@ -1,0 +1,9 @@
+V4 DATABASE DEPLOY
+1. Upload ROOT files to GitHub; no mobile folder.
+2. Link Railway PostgreSQL to this service.
+3. Ensure DATABASE_URL is set.
+4. Set REQUIRE_DATABASE=true in production.
+5. Keep ADMIN_PASSWORD and SESSION_SECRET set.
+6. Set CRICKETDATA_API_KEY/CRICWIX_API_KEY and ODDS_PAPI_KEY as required.
+
+V4 automatically initializes PostgreSQL app_state from the JSON backup on the first empty database, then loads PostgreSQL on later restarts. Player users, balances, claims, wallet, bets, games, coin requests, withdrawals, withdrawal details and aviator bets are persisted. /api/health reports DB status. Shutdown flushes pending writes.
