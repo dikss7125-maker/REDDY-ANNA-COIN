@@ -5,7 +5,7 @@ if(!ADMIN_PASSWORD||!SESSION_SECRET) console.warn('WARNING: ADMIN_PASSWORD and S
 app.use(express.json({limit:'8mb'}));app.use(express.urlencoded({extended:true}));
 fs.mkdirSync(path.join(__dirname,'uploads'),{recursive:true});
 app.use('/uploads',express.static(path.join(__dirname,'uploads')));
-const CASINO_DIST=path.join(__dirname,'casino-app','dist');
+const CASINO_DIST=path.join(__dirname,'dist-casino');
 if(fs.existsSync(CASINO_DIST)){
   app.use('/casino-premium',express.static(CASINO_DIST,{index:'index.html'}));
   app.get('/casino-premium/*',(req,res)=>{
@@ -46,7 +46,7 @@ app.get('/',(req,res)=>page(res,'index.html'));
 app.get('/admin-login.html',(req,res)=>page(res,'admin-login.html'));
 app.get('/admin',(req,res)=>{if(!admin(req))return res.redirect('/admin-login.html');return res.redirect('/admin.html')});
 app.get('/admin.html',(req,res)=>{if(!admin(req))return res.redirect('/admin-login.html');page(res,'admin.html')});
-app.get('/api/health',(req,res)=>{res.set('Cache-Control','no-store');res.status(dbStatus?.connected||!dbStatus?.required?200:503).json({ok:dbStatus?.connected||!dbStatus?.required,service:'mahadev-book',database:{required:!!dbStatus?.required,configured:!!dbStatus?.configured,connected:!!dbStatus?.connected,source:dbStatus?.source||'json',error:dbStatus?.error||null}})});app.get('/api/me',(req,res)=>{res.set('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');res.set('Pragma','no-cache');res.set('Expires','0');const u=user(req);res.json({loggedIn:!!u,user:u?{id:u.id,balance:u.balance,created:u.created,name:u.name}:null})});
+app.get('/api/health',(req,res)=>res.json({ok:true,service:'mahadev-book'}));app.get('/api/me',(req,res)=>{res.set('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');res.set('Pragma','no-cache');res.set('Expires','0');const u=user(req);res.json({loggedIn:!!u,user:u?{id:u.id,balance:u.balance,created:u.created,name:u.name}:null})});
 function hash(p,s){return crypto.scryptSync(p,s,64).toString('hex')}function pw(p){const s=crypto.randomBytes(16).toString('hex');return s+':'+hash(p,s)}function okpw(p,v){const [s,d]=String(v||'').split(':');if(!s||!d)return false;return hash(p,s)===d}
 app.post('/api/register',(req,res)=>{const uid=String(req.body.playerId||'').trim().toUpperCase();const pass=String(req.body.password||'');if(!/^[A-Z0-9_]{4,24}$/.test(uid)||pass.length<6)return res.status(400).json({error:'Use a valid Player ID and 6+ character password.'});if(db.users[uid])return res.status(409).json({error:'Player ID already exists.'});db.users[uid]={id:uid,password:pw(pass),balance:0,created:now(),name:''};save();cookie(req,res,'mb_session',sign({uid,exp:Date.now()+7*86400000}),7*86400);res.json({ok:true})});
 app.post('/api/login',(req,res)=>{const uid=String(req.body.playerId||'').trim().toUpperCase();const u=db.users[uid];if(!u||!okpw(String(req.body.password||''),u.password))return res.status(401).json({error:'Invalid Player ID or password.'});cookie(req,res,'mb_session',sign({uid,exp:Date.now()+7*86400000}),7*86400);res.json({ok:true})});
@@ -225,46 +225,44 @@ app.post('/api/admin/bonus-code',needAdmin,(req,res)=>{const code=cleanText(req.
 app.delete('/api/admin/bonus-code/:code',needAdmin,(req,res)=>{const code=cleanText(req.params.code,40).toUpperCase();if(['WELCOME500','EXTRA1000','BONUS2500'].includes(code))return res.status(400).json({error:'Default bonus code cannot be deleted.'});delete db.bonusCodes[code];save();res.json({ok:true})});
 app.post('/api/admin/request',needAdmin,(req,res)=>{const q=db.coinRequests.find(x=>x.id===req.body.id);if(!q||q.status!=='PENDING')return res.status(400).json({error:'Request not available.'});const status=String(req.body.status||'');if(!['APPROVED','REJECTED'].includes(status))return res.status(400).json({error:'Invalid status.'});q.status=status;q.handledAt=now();if(status==='APPROVED'&&(q.kind==='add'||q.kind==='deposit')){const u=db.users[q.uid];u.balance+=q.amount;db.wallet.push({id:id('TX'),uid:q.uid,amount:q.amount,type:'REQUEST_APPROVED',note:'Coin request approved',time:now(),balance:u.balance})}save();res.json({ok:true})});
 
-// PostgreSQL durable persistence.
-const REQUIRE_DATABASE=String(process.env.REQUIRE_DATABASE||(process.env.NODE_ENV==='production'?'true':'false')).toLowerCase()!=='false';
-let pgPool=null, pgWriteQueue=Promise.resolve();
+// PostgreSQL durable persistence. JSON remains a local backup; PostgreSQL is authoritative when DATABASE_URL is present.
+let pgPool=null, pgWriteQueue=Promise.resolve(), pgReady=Promise.resolve();
 const PG_KEY='main';
-const DB_SCHEMA_VERSION=2;
-const dbStatus={required:REQUIRE_DATABASE,configured:!!process.env.DATABASE_URL,connected:false,source:'json',error:null};
-function serializableState(){const out={...db};delete out._runtime;return out}
+function serializableState(){
+  const out={...db};
+  return out;
+}
 async function initPostgres(){
-  if(!process.env.DATABASE_URL||!Pool){
-    dbStatus.source='json';
-    if(REQUIRE_DATABASE)throw new Error('DATABASE_URL is required when REQUIRE_DATABASE=true.');
-    return;
-  }
-  pgPool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:Number(process.env.PGPOOL_MAX||5),idleTimeoutMillis:30000,connectionTimeoutMillis:10000,keepAlive:true});
-  pgPool.on('error',err=>{dbStatus.error=err.message;console.error('PostgreSQL pool error:',err.message)});
-  await pgPool.query('SELECT 1 AS ok');
-  await pgPool.query(`CREATE TABLE IF NOT EXISTS app_state (state_key TEXT PRIMARY KEY,schema_version INTEGER NOT NULL DEFAULT 1,state JSONB NOT NULL,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
-  await pgPool.query(`ALTER TABLE app_state ADD COLUMN IF NOT EXISTS schema_version INTEGER NOT NULL DEFAULT 1`);
-  const r=await pgPool.query('SELECT state,schema_version FROM app_state WHERE state_key=$1',[PG_KEY]);
+  if(!process.env.DATABASE_URL||!Pool)return;
+  pgPool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('railway')?{rejectUnauthorized:false}:undefined,max:5});
+  await pgPool.query(`CREATE TABLE IF NOT EXISTS app_state (
+    state_key TEXT PRIMARY KEY,
+    state JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  const r=await pgPool.query('SELECT state FROM app_state WHERE state_key=$1',[PG_KEY]);
   if(r.rows[0]?.state){
     const saved=r.rows[0].state;
-    for(const k of Object.keys(saved||{}))db[k]=saved[k];
-    if(!db.users)db.users={}; if(!Array.isArray(db.claims))db.claims=[]; if(!Array.isArray(db.wallet))db.wallet=[]; if(!Array.isArray(db.bets))db.bets=[]; if(!Array.isArray(db.games))db.games=[]; if(!Array.isArray(db.coinRequests))db.coinRequests=[]; if(!Array.isArray(db.withdrawals))db.withdrawals=[]; if(!db.withdrawalDetails)db.withdrawalDetails={};
-    await pgPool.query('UPDATE app_state SET schema_version=$2,updated_at=NOW() WHERE state_key=$1',[PG_KEY,DB_SCHEMA_VERSION]);
-    console.log(`PostgreSQL state loaded (schema v${r.rows[0].schema_version||1} -> v${DB_SCHEMA_VERSION}).`);
+    for(const k of Object.keys(saved)) db[k]=saved[k];
+    if(!db.users)db.users={}; if(!db.wallet)db.wallet=[]; if(!db.bets)db.bets=[]; if(!db.games)db.games=[];
   }else{
-    await pgPool.query('INSERT INTO app_state(state_key,schema_version,state) VALUES($1,$2,$3::jsonb)',[PG_KEY,DB_SCHEMA_VERSION,JSON.stringify(serializableState())]);
-    console.log('PostgreSQL initialized from current JSON backup.');
+    await pgPool.query('INSERT INTO app_state(state_key,state) VALUES($1,$2::jsonb) ON CONFLICT(state_key) DO NOTHING',[PG_KEY,JSON.stringify(serializableState())]);
   }
-  dbStatus.connected=true; dbStatus.source='postgres'; dbStatus.error=null;
 }
 function persistPostgres(){
   if(!pgPool)return Promise.resolve();
   const snapshot=JSON.stringify(serializableState());
-  pgWriteQueue=pgWriteQueue.then(()=>pgPool.query(`INSERT INTO app_state(state_key,schema_version,state,updated_at) VALUES($1,$2,$3::jsonb,NOW()) ON CONFLICT(state_key) DO UPDATE SET schema_version=EXCLUDED.schema_version,state=EXCLUDED.state,updated_at=NOW()`,[PG_KEY,DB_SCHEMA_VERSION,snapshot])).then(()=>{dbStatus.connected=true;dbStatus.error=null}).catch(e=>{dbStatus.connected=false;dbStatus.error=e.message;console.error('PostgreSQL persistence error:',e.message)});
+  pgWriteQueue=pgWriteQueue.then(()=>pgPool.query(
+    `INSERT INTO app_state(state_key,state,updated_at) VALUES($1,$2::jsonb,NOW())
+     ON CONFLICT(state_key) DO UPDATE SET state=EXCLUDED.state,updated_at=NOW()`,
+    [PG_KEY,snapshot]
+  )).catch(e=>console.error('PostgreSQL persistence error:',e.message));
   return pgWriteQueue;
 }
-const originalSave=save; save=function(){originalSave();return persistPostgres()};
+const originalSave=save;
+save=function(){originalSave();return persistPostgres()};
 async function startup(){
-  try{await initPostgres();console.log(pgPool?'PostgreSQL persistence ENABLED':'PostgreSQL not configured; using JSON backup')}catch(e){dbStatus.error=e.message;dbStatus.connected=false;console.error('PostgreSQL initialization failed:',e.stack||e.message||e);if(REQUIRE_DATABASE){console.error('Startup aborted because REQUIRE_DATABASE=true.');process.exitCode=1;return}console.warn('Continuing with JSON backup because REQUIRE_DATABASE=false.')}
+  try{await initPostgres();console.log(pgPool?'PostgreSQL persistence enabled':'PostgreSQL not configured; using JSON backup')}catch(e){console.error('PostgreSQL init failed:',e.message);console.warn('Continuing with JSON backup; existing user data is not deleted.')}
   app.listen(PORT,'0.0.0.0',()=>console.log(`MAHADEV BOOK listening on ${PORT}`));
 }
 
@@ -302,12 +300,5 @@ app.post('/api/casino/settle',need,(req,res)=>{
   save();
   res.json({ok:true,balance:req.user.balance,payout:finalPayout});
 });
-async function shutdown(signal){
-  console.log(`Received ${signal}; flushing database writes...`);
-  try{await pgWriteQueue}catch{}
-  try{if(pgPool)await pgPool.end()}catch(e){console.error('PostgreSQL shutdown error:',e.message)}
-  process.exit(0);
-}
-process.on('SIGTERM',()=>shutdown('SIGTERM'));
-process.on('SIGINT',()=>shutdown('SIGINT'));
 startup();
+

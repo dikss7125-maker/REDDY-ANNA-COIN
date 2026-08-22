@@ -1,0 +1,1 @@
+ROOT-FLAT DEPLOY BUILD\nNo mobile/ folder. No casino-app/src/components subfolders. Casino source files are flattened and imports rewritten.\n
