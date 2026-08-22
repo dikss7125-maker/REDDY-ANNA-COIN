@@ -282,9 +282,19 @@ function runtimeEnv(name){
     .trim();
 }
 function bigbangApiKey(){
-  // BIGBANG_API_KEY is the documented Railway variable. The aliases make the
-  // integration tolerant of a renamed Railway variable without exposing secrets.
-  return runtimeEnv('BIGBANG_API_KEY') || runtimeEnv('BIGBANG_APIKEY') || runtimeEnv('BIGBANG_KEY');
+  // Railway normally injects BIGBANG_API_KEY into process.env. Also tolerate
+  // accidental whitespace/case differences in the variable name. This never
+  // sends the key to the browser or exposes its value in logs/responses.
+  const direct=runtimeEnv('BIGBANG_API_KEY') || runtimeEnv('BIGBANG_APIKEY') || runtimeEnv('BIGBANG_KEY');
+  if(direct)return direct;
+  for(const [name,value] of Object.entries(process.env)){
+    const normalized=String(name||'').replace(/[^A-Z0-9]/gi,'').toUpperCase();
+    if(normalized==='BIGBANGAPIKEY' || normalized==='BIGBANGKEY'){
+      const v=String(value||'').replace(/[\r\n]/g,'').trim().replace(/^['\"`]+|['\"`]+$/g,'').trim();
+      if(v)return v;
+    }
+  }
+  return '';
 }
 function bigbangCurrency(){return (runtimeEnv('BIGBANG_CURRENCY')||'INR').toUpperCase()}
 function bigbangMode(){return runtimeEnv('BIGBANG_MODE').toLowerCase()==='fun'?'fun':'real'}
