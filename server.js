@@ -268,21 +268,48 @@ async function startup(){
 
 
 // BigBang Casino API integration. Uses the existing player wallet as the source of truth.
-const BIGBANG_API_KEY=String(process.env.BIGBANG_API_KEY||'').trim();
+// IMPORTANT: read the key at REQUEST TIME. Railway can inject/update variables after
+// the Node process has been built; caching the key at module load causes false
+// "not configured" errors. Never expose the key to browser/client code.
 const BIGBANG_BASE='https://api.bigbangcasino.bet';
-const BIGBANG_CURRENCY=String(process.env.BIGBANG_CURRENCY||'INR').trim().toUpperCase();
-const BIGBANG_MODE=String(process.env.BIGBANG_MODE||'real').trim().toLowerCase()==='fun'?'fun':'real';
 if(!Array.isArray(db.bigbangTransactions))db.bigbangTransactions=[];
 
+function runtimeEnv(name){
+  return String(process.env[name]||'')
+    .replace(/[\r\n]/g,'')
+    .trim()
+    .replace(/^['"`]+|['"`]+$/g,'')
+    .trim();
+}
+function bigbangApiKey(){
+  // BIGBANG_API_KEY is the documented Railway variable. The aliases make the
+  // integration tolerant of a renamed Railway variable without exposing secrets.
+  return runtimeEnv('BIGBANG_API_KEY') || runtimeEnv('BIGBANG_APIKEY') || runtimeEnv('BIGBANG_KEY');
+}
+function bigbangCurrency(){return (runtimeEnv('BIGBANG_CURRENCY')||'INR').toUpperCase()}
+function bigbangMode(){return runtimeEnv('BIGBANG_MODE').toLowerCase()==='fun'?'fun':'real'}
+
 async function bigbangFetch(pathname,options={}){
-  if(!BIGBANG_API_KEY) throw Object.assign(new Error('BIGBANG_API_KEY is not configured.'),{status:503});
-  const r=await fetch(BIGBANG_BASE+pathname,{...options,headers:{'x-api-key':BIGBANG_API_KEY,'content-type':'application/json',...(options.headers||{})}});
+  const apiKey=bigbangApiKey();
+  if(!apiKey){
+    throw Object.assign(new Error('BIGBANG_API_KEY is not available in the active Railway runtime. Check Variables on the deployed service, then redeploy.'),{status:503,code:'MISSING_BIGBANG_API_KEY'});
+  }
+  const r=await fetch(BIGBANG_BASE+pathname,{...options,headers:{'X-API-Key':apiKey,'Content-Type':'application/json',...(options.headers||{})}});
   const text=await r.text();
   let body={};try{body=text?JSON.parse(text):{}}catch{body={raw:text}};
   if(!r.ok) throw Object.assign(new Error(body?.error?.message||body?.message||`BigBang API returned ${r.status}`),{status:r.status,body});
   return body;
 }
 
+async function bigbangCatalog(){
+  // Current documented API is /api/v1/games. Keep the short /games endpoint
+  // as a compatibility fallback for older BigBang deployments.
+  try{return await bigbangFetch('/api/v1/games')}catch(e){if(e?.status!==404)throw e;return bigbangFetch('/games')}
+}
+async function bigbangLaunch(payload){
+  try{return await bigbangFetch('/api/v1/games/launch',{method:'POST',body:JSON.stringify(payload)})}
+  catch(e){if(e?.status!==404)throw e;return bigbangFetch('/launch',{method:'POST',body:JSON.stringify(payload)})}
+}
 function bigbangCatalogArray(body){
   if(Array.isArray(body))return body;
   return Array.isArray(body?.games)?body.games:Array.isArray(body?.data)?body.data:Array.isArray(body?.data?.games)?body.data.games:[];
@@ -292,7 +319,7 @@ function normalizeGame(g){
     id:String(g?.id??g?.game_id??g?.gameId??''),
     name:String(g?.name??g?.title??g?.game_name??'Casino Game'),
     provider:String(g?.provider??g?.provider_name??g?.vendor??'Casino'),
-    category:String(g?.category??g?.type??g?.game_type??'Casino'),
+    category:String(g?.category??g?.category_title??g?.type??g?.game_type??'Casino'),
     thumbnail:String(g?.thumbnail??g?.thumbnail_url??g?.image??g?.image_url??g?.assets?.thumbnail??''),
     banner:String(g?.banner??g?.banner_url??g?.assets?.banner??''),
     rtp:Number(g?.rtp??g?.RTP??0)||0,
@@ -316,9 +343,15 @@ function chooseBigbangFeatured(games){
   return out.slice(0,15);
 }
 
+app.get('/api/bigbang/status',need,async(req,res)=>{
+  const key=bigbangApiKey();
+  res.set('Cache-Control','no-store');
+  res.json({ok:true,configured:Boolean(key),source:key?'railway-runtime':'missing',keyPrefix:key?key.slice(0,3):'',keyLength:key.length});
+});
+
 app.get('/api/bigbang/featured-games',need,async(req,res)=>{
   try{
-    const body=await bigbangFetch('/games');
+    const body=await bigbangCatalog();
     const games=chooseBigbangFeatured(bigbangCatalogArray(body));
     res.set('Cache-Control','no-store');
     res.json({ok:true,count:games.length,games});
@@ -329,12 +362,14 @@ app.post('/api/bigbang/launch',need,async(req,res)=>{
   try{
     const gameId=cleanText(req.body.game_id||req.body.gameId,120);
     if(!gameId)return res.status(400).json({error:'Game ID is required.'});
-    const body=await bigbangFetch('/launch',{method:'POST',body:JSON.stringify({
-      game_id:gameId,player_id:req.user.id,currency:BIGBANG_CURRENCY,mode:BIGBANG_MODE
-    })});
-    const launchUrl=body?.launch_url||body?.game_url||body?.url||body?.data?.launch_url||body?.data?.game_url||body?.data?.url;
+    const mode=bigbangMode();
+    const playerId=cleanText(req.user.id,120);
+    const payload={game_id:gameId,user_token:playerId,player_id:playerId,currency:bigbangCurrency(),mode};
+    if(mode==='fun')payload.demo=true;
+    const body=await bigbangLaunch(payload);
+    const launchUrl=body?.game_url||body?.launch_url||body?.data?.game_url||body?.data?.launch_url||body?.url||body?.data?.url;
     if(!launchUrl)return res.status(502).json({error:'BigBang did not return a launch URL.',response:body});
-    res.json({ok:true,game_id:gameId,launch_url:launchUrl,currency:BIGBANG_CURRENCY,mode:BIGBANG_MODE,balance:Number(req.user.balance||0)});
+    res.json({ok:true,game_id:gameId,launch_url:launchUrl,currency:bigbangCurrency(),mode,balance:Number(req.user.balance||0)});
   }catch(e){console.error('BigBang launch error:',e?.message||e);res.status(e?.status||502).json({error:e?.message||'BigBang launch failed.'});}
 });
 
