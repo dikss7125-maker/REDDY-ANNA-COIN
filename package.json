@@ -4,7 +4,10 @@
   "private": true,
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "npm run build:casino",
+    "build:casino": "cd casino-app && npm install --include=dev --no-audit --no-fund && npm run build",
+    "prestart": "npm run build:casino"
   },
   "dependencies": {
     "express": "^4.21.2",
