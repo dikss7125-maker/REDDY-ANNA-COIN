@@ -6,14 +6,14 @@ app.use(express.json({limit:'8mb'}));app.use(express.urlencoded({extended:true})
 fs.mkdirSync(path.join(__dirname,'uploads'),{recursive:true});
 app.use('/uploads',express.static(path.join(__dirname,'uploads')));
 const CASINO_DIST=path.join(__dirname,'dist-casino');
-if(fs.existsSync(CASINO_DIST)){
-  app.use('/casino-premium',express.static(CASINO_DIST,{index:'index.html'}));
-  app.get('/casino-premium/*',(req,res)=>{
-    const index=path.join(CASINO_DIST,'index.html');
-    if(fs.existsSync(index))return res.sendFile(index);
-    res.status(503).send('Casino build is not available yet.');
-  });
-}
+app.use('/casino-premium',express.static(CASINO_DIST,{index:'index.html'}));
+app.get('/casino-premium/*',(req,res)=>{
+  const index=path.join(CASINO_DIST,'index.html');
+  if(fs.existsSync(index))return res.sendFile(index);
+  const fallback=path.join(__dirname,'casino.html');
+  if(fs.existsSync(fallback))return res.sendFile(fallback);
+  res.status(503).send('Casino build is not available yet.');
+});
 
 const db=load();
 const USER_FIELDS=['users','claims','wallet','bets','games','coinRequests','withdrawals','withdrawalDetails'];
@@ -263,7 +263,11 @@ const originalSave=save;
 save=function(){originalSave();return persistPostgres()};
 async function startup(){
   try{await initPostgres();console.log(pgPool?'PostgreSQL persistence enabled':'PostgreSQL not configured; using JSON backup')}catch(e){console.error('PostgreSQL init failed:',e.message);console.warn('Continuing with JSON backup; existing user data is not deleted.')}
-  app.listen(PORT,'0.0.0.0',()=>console.log(`MAHADEV BOOK listening on ${PORT}`));
+  app.listen(PORT,'0.0.0.0',()=>{
+    console.log(`MAHADEV BOOK listening on ${PORT}`);
+    console.log(`BigBang API key detected at runtime: ${Boolean(bigbangApiKey())}`);
+    console.log(`BigBang mode: ${bigbangMode()} | currency: ${bigbangCurrency()}`);
+  });
 }
 
 
@@ -297,28 +301,32 @@ function bigbangApiKey(){
   return '';
 }
 function bigbangCurrency(){return (runtimeEnv('BIGBANG_CURRENCY')||'INR').toUpperCase()}
-function bigbangMode(){return runtimeEnv('BIGBANG_MODE').toLowerCase()==='fun'?'fun':'real'}
+function bigbangMode(){const m=runtimeEnv('BIGBANG_MODE').toLowerCase();return m==='real'?'real':'fun'}
 
 async function bigbangFetch(pathname,options={}){
   const apiKey=bigbangApiKey();
   if(!apiKey){
-    throw Object.assign(new Error('BIGBANG_API_KEY is not available in the active Railway runtime. Check Variables on the deployed service, then redeploy.'),{status:503,code:'MISSING_BIGBANG_API_KEY'});
+    throw Object.assign(new Error('BIGBANG_API_KEY is missing from the active Railway deployment. Add it to the REDDY-ANNA-COIN service Variables in the production environment and Deploy the staged change.'),{status:503,code:'MISSING_BIGBANG_API_KEY'});
   }
-  const r=await fetch(BIGBANG_BASE+pathname,{...options,headers:{'X-API-Key':apiKey,'Content-Type':'application/json',...(options.headers||{})}});
+  const r=await fetch(BIGBANG_BASE+pathname,{...options,headers:{'X-API-Key':apiKey,'Accept':'application/json','Content-Type':'application/json',...(options.headers||{})},signal:options.signal||AbortSignal.timeout(15000)});
   const text=await r.text();
   let body={};try{body=text?JSON.parse(text):{}}catch{body={raw:text}};
-  if(!r.ok) throw Object.assign(new Error(body?.error?.message||body?.message||`BigBang API returned ${r.status}`),{status:r.status,body});
+  if(!r.ok){
+    const msg=body?.error?.message||body?.error?.detail||body?.message||body?.error||`BigBang API returned HTTP ${r.status}`;
+    throw Object.assign(new Error(String(msg)),{status:r.status,code:body?.error?.code||`HTTP_${r.status}`,body});
+  }
   return body;
 }
 
 async function bigbangCatalog(){
-  // Current documented API is /api/v1/games. Keep the short /games endpoint
-  // as a compatibility fallback for older BigBang deployments.
-  try{return await bigbangFetch('/api/v1/games')}catch(e){if(e?.status!==404)throw e;return bigbangFetch('/games')}
+  // Official current endpoint. Limit is explicit so the featured selector sees the full catalog.
+  return bigbangFetch('/api/v1/games?limit=5000');
+}
+async function bigbangCreatePlayer(userToken){
+  return bigbangFetch('/api/v1/users/create',{method:'POST',body:JSON.stringify({user_token:userToken,username:userToken,country:'IN'})});
 }
 async function bigbangLaunch(payload){
-  try{return await bigbangFetch('/api/v1/games/launch',{method:'POST',body:JSON.stringify(payload)})}
-  catch(e){if(e?.status!==404)throw e;return bigbangFetch('/launch',{method:'POST',body:JSON.stringify(payload)})}
+  return bigbangFetch('/api/v1/games/launch',{method:'POST',body:JSON.stringify(payload)});
 }
 function bigbangCatalogArray(body){
   if(Array.isArray(body))return body;
@@ -356,7 +364,7 @@ function chooseBigbangFeatured(games){
 app.get('/api/bigbang/status',need,async(req,res)=>{
   const key=bigbangApiKey();
   res.set('Cache-Control','no-store');
-  res.json({ok:true,configured:Boolean(key),source:key?'railway-runtime':'missing',keyPrefix:key?key.slice(0,3):'',keyLength:key.length});
+  res.json({ok:Boolean(key),configured:Boolean(key),source:key?'railway-runtime':'missing',keyPrefix:key?key.slice(0,3):'',keyLength:key.length,mode:bigbangMode(),currency:bigbangCurrency()});
 });
 
 app.get('/api/bigbang/featured-games',need,async(req,res)=>{
@@ -374,8 +382,17 @@ app.post('/api/bigbang/launch',need,async(req,res)=>{
     if(!gameId)return res.status(400).json({error:'Game ID is required.'});
     const mode=bigbangMode();
     const playerId=cleanText(req.user.id,120);
-    const payload={game_id:gameId,user_token:playerId,player_id:playerId,currency:bigbangCurrency(),mode};
-    if(mode==='fun')payload.demo=true;
+    let payload;
+    if(mode==='fun'){
+      // Demo/fun mode is the safe default: no BigBang wallet is touched.
+      payload={game_id:gameId,user_token:'demo',demo:true,language:'en'};
+    }else{
+      // Real-mode launches require a BigBang player to exist. Keep this opt-in via BIGBANG_MODE=real.
+      try{await bigbangCreatePlayer(playerId)}catch(e){
+        if(e?.status!==200 && e?.status!==201 && e?.status!==409)throw e;
+      }
+      payload={game_id:gameId,user_token:playerId,language:'en',currency:bigbangCurrency(),return_url:'/casino.html'};
+    }
     const body=await bigbangLaunch(payload);
     const launchUrl=body?.game_url||body?.launch_url||body?.data?.game_url||body?.data?.launch_url||body?.url||body?.data?.url;
     if(!launchUrl)return res.status(502).json({error:'BigBang did not return a launch URL.',response:body});
@@ -409,7 +426,7 @@ function bigbangWalletCallback(req,res,fallbackOp=''){
   const op=bigbangOperation(req,fallbackOp);
   const amount=Math.abs(bigbangAmount(req));
   const txid=bigbangTxId(req,op);
-  if(op==='authenticate'||op==='balance'||op==='get_balance')return res.json({ok:true,balance:Number(u.balance||0),currency:BIGBANG_CURRENCY});
+  if(op==='authenticate'||op==='balance'||op==='get_balance')return res.json({ok:true,balance:Number(u.balance||0),currency:bigbangCurrency()});
   if(!['bet','win','rollback','refund','debit','credit'].includes(op))return res.status(400).json({error:'Unsupported BigBang wallet operation.'});
   const key=`${op}:${txid}`;
   if(db.bigbangTransactions.some(x=>x.key===key))return res.json({ok:true,balance:Number(u.balance||0),duplicate:true});
@@ -427,7 +444,7 @@ function bigbangWalletCallback(req,res,fallbackOp=''){
   db.wallet.push({id:id('BBTX'),uid,amount:delta,type:`BIGBANG_${op.toUpperCase()}`,note:game,time:now(),balance:u.balance});
   db.games.push({id:id('BBGAME'),uid:req.user?.id||uid,game,stake:op==='bet'?amount:0,payout:(op==='win'||op==='credit'||op==='rollback'||op==='refund')?amount:0,result:op,time:now(),balance:u.balance,source:'bigbang',transactionId:txid});
   save();
-  res.json({ok:true,balance:Number(u.balance||0),currency:BIGBANG_CURRENCY});
+  res.json({ok:true,balance:Number(u.balance||0),currency:bigbangCurrency()});
 }
 app.post('/api/bigbang/wallet',(req,res)=>bigbangWalletCallback(req,res));
 app.post('/api/bigbang/balance',(req,res)=>bigbangWalletCallback(req,res,'balance'));
