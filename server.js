@@ -1,9 +1,20 @@
 const express=require('express');const crypto=require('crypto');const fs=require('fs');const path=require('path');
+let Pool=null;try{Pool=require('pg').Pool}catch{Pool=null}
 const app=express();const PORT=Number(process.env.PORT||3000);const ADMIN_PASSWORD=String(process.env.ADMIN_PASSWORD||'chiku1661');const SESSION_SECRET=String(process.env.SESSION_SECRET||'');const DB_PATH=process.env.DATA_PATH||path.join(__dirname,'data.json');const USER_DB_PATH=process.env.USER_DATA_PATH||path.join(__dirname,'users_data.json');
 if(!ADMIN_PASSWORD||!SESSION_SECRET) console.warn('WARNING: ADMIN_PASSWORD and SESSION_SECRET should be set in hosting variables.');
 app.use(express.json({limit:'8mb'}));app.use(express.urlencoded({extended:true}));
 fs.mkdirSync(path.join(__dirname,'uploads'),{recursive:true});
 app.use('/uploads',express.static(path.join(__dirname,'uploads')));
+const CASINO_DIST=path.join(__dirname,'casino-app','dist');
+if(fs.existsSync(CASINO_DIST)){
+  app.use('/casino-premium',express.static(CASINO_DIST,{index:'index.html'}));
+  app.get('/casino-premium/*',(req,res)=>{
+    const index=path.join(CASINO_DIST,'index.html');
+    if(fs.existsSync(index))return res.sendFile(index);
+    res.status(503).send('Casino build is not available yet.');
+  });
+}
+
 const db=load();
 const USER_FIELDS=['users','claims','wallet','bets','games','coinRequests','withdrawals','withdrawalDetails'];
 if(!db.settings)db.settings={siteName:'MHADEV BOOK',supportTelegram:'',supportWhatsapp:''};
@@ -130,8 +141,8 @@ const win=Math.floor(stake*mult);if(win>0){req.user.balance+=win;db.wallet.push(
 app.post('/api/match-bet',need,(req,res)=>{const stake=Math.floor(Number(req.body.stake));const odds=Math.max(1.01,Math.min(50,Number(req.body.odds)));const market=String(req.body.market||'').slice(0,160);if(!market||!Number.isFinite(stake)||stake<10||stake>100000)return res.status(400).json({error:'Invalid pick or stake.'});if(req.user.balance<stake)return res.status(400).json({error:'Insufficient coins.'});req.user.balance-=stake;const bet={id:id('BET'),uid:req.user.id,market,odds,stake,possibleWin:Math.floor(stake*odds),status:'OPEN',time:now()};db.bets.push(bet);db.wallet.push({id:id('TX'),uid:req.user.id,amount:-stake,type:'MATCH_STAKE',note:market,time:now(),balance:req.user.balance});save();res.json({ok:true,bet,balance:req.user.balance})});
 
 // OddsPapi Match Odds proxy. API key stays server-side; only Back/Lay is returned.
-function oddsPapiKey(){return String(process.env.ODDSPAPI_API_KEY||'').replace(/[\r\n]/g,'').trim().replace(/^['"`]+|['"`]+$/g,'').trim()}
-async function oddsPapiGet(endpoint,params={}){const key=oddsPapiKey();if(!key)throw Object.assign(new Error('ODDSPAPI_API_KEY is not configured.'),{status:503,code:'ODDSPAPI_MISSING_KEY'});const q=new URLSearchParams({...params,apiKey:key});const r=await fetch(`https://api.oddspapi.io/v4/${endpoint}?${q.toString()}`,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(15000)});const text=await r.text();let body={};try{body=JSON.parse(text)}catch{body={raw:text}}if(!r.ok)throw Object.assign(new Error(body?.message||body?.error||`OddsPapi HTTP ${r.status}`),{status:r.status,body});return body}
+function oddsPapiKey(){return String(process.env.ODDS_PAPI_KEY || process.env.ODDSPAPI_API_KEY || '').replace(/[\r\n]/g,'').trim().replace(/^['"`]+|['"`]+$/g,'').trim()}
+async function oddsPapiGet(endpoint,params={}){const key=oddsPapiKey();if(!key)throw Object.assign(new Error('ODDS_PAPI_KEY is not configured.'),{status:503,code:'ODDSPAPI_MISSING_KEY'});const q=new URLSearchParams({...params,apiKey:key});const r=await fetch(`https://api.oddspapi.io/v4/${endpoint}?${q.toString()}`,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(15000)});const text=await r.text();let body={};try{body=JSON.parse(text)}catch{body={raw:text}}if(!r.ok)throw Object.assign(new Error(body?.message||body?.error||`OddsPapi HTTP ${r.status}`),{status:r.status,body});return body}
 function normTeam(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(/\s+/).filter(x=>x.length>1).sort().join(' ')}
 function teamMatch(a,b){const x=normTeam(a),y=normTeam(b);if(!x||!y)return false;if(x===y)return true;const as=new Set(x.split(' ')),bs=new Set(y.split(' '));let common=0;for(const t of as)if(bs.has(t))common++;return common>=Math.max(1,Math.min(as.size,bs.size)-1)}
 function bestExchange(p){
@@ -213,4 +224,81 @@ app.post('/api/admin/support',needAdmin,(req,res)=>{db.settings.supportTelegram=
 app.post('/api/admin/bonus-code',needAdmin,(req,res)=>{const code=cleanText(req.body.code,40).toUpperCase().replace(/\s+/g,'');const amount=Math.floor(Number(req.body.amount));if(!/^[A-Z0-9_-]{3,40}$/.test(code)||!Number.isInteger(amount)||amount<1||amount>100000000)return res.status(400).json({error:'Invalid bonus code or amount.'});db.bonusCodes[code]=amount;save();res.json({ok:true,code,amount})});
 app.delete('/api/admin/bonus-code/:code',needAdmin,(req,res)=>{const code=cleanText(req.params.code,40).toUpperCase();if(['WELCOME500','EXTRA1000','BONUS2500'].includes(code))return res.status(400).json({error:'Default bonus code cannot be deleted.'});delete db.bonusCodes[code];save();res.json({ok:true})});
 app.post('/api/admin/request',needAdmin,(req,res)=>{const q=db.coinRequests.find(x=>x.id===req.body.id);if(!q||q.status!=='PENDING')return res.status(400).json({error:'Request not available.'});const status=String(req.body.status||'');if(!['APPROVED','REJECTED'].includes(status))return res.status(400).json({error:'Invalid status.'});q.status=status;q.handledAt=now();if(status==='APPROVED'&&(q.kind==='add'||q.kind==='deposit')){const u=db.users[q.uid];u.balance+=q.amount;db.wallet.push({id:id('TX'),uid:q.uid,amount:q.amount,type:'REQUEST_APPROVED',note:'Coin request approved',time:now(),balance:u.balance})}save();res.json({ok:true})});
-app.listen(PORT,'0.0.0.0',()=>console.log(`MAHADEV BOOK listening on ${PORT}`));
+
+// PostgreSQL durable persistence. JSON remains a local backup; PostgreSQL is authoritative when DATABASE_URL is present.
+let pgPool=null, pgWriteQueue=Promise.resolve(), pgReady=Promise.resolve();
+const PG_KEY='main';
+function serializableState(){
+  const out={...db};
+  return out;
+}
+async function initPostgres(){
+  if(!process.env.DATABASE_URL||!Pool)return;
+  pgPool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('railway')?{rejectUnauthorized:false}:undefined,max:5});
+  await pgPool.query(`CREATE TABLE IF NOT EXISTS app_state (
+    state_key TEXT PRIMARY KEY,
+    state JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  const r=await pgPool.query('SELECT state FROM app_state WHERE state_key=$1',[PG_KEY]);
+  if(r.rows[0]?.state){
+    const saved=r.rows[0].state;
+    for(const k of Object.keys(saved)) db[k]=saved[k];
+    if(!db.users)db.users={}; if(!db.wallet)db.wallet=[]; if(!db.bets)db.bets=[]; if(!db.games)db.games=[];
+  }else{
+    await pgPool.query('INSERT INTO app_state(state_key,state) VALUES($1,$2::jsonb) ON CONFLICT(state_key) DO NOTHING',[PG_KEY,JSON.stringify(serializableState())]);
+  }
+}
+function persistPostgres(){
+  if(!pgPool)return Promise.resolve();
+  const snapshot=JSON.stringify(serializableState());
+  pgWriteQueue=pgWriteQueue.then(()=>pgPool.query(
+    `INSERT INTO app_state(state_key,state,updated_at) VALUES($1,$2::jsonb,NOW())
+     ON CONFLICT(state_key) DO UPDATE SET state=EXCLUDED.state,updated_at=NOW()`,
+    [PG_KEY,snapshot]
+  )).catch(e=>console.error('PostgreSQL persistence error:',e.message));
+  return pgWriteQueue;
+}
+const originalSave=save;
+save=function(){originalSave();return persistPostgres()};
+async function startup(){
+  try{await initPostgres();console.log(pgPool?'PostgreSQL persistence enabled':'PostgreSQL not configured; using JSON backup')}catch(e){console.error('PostgreSQL init failed:',e.message);console.warn('Continuing with JSON backup; existing user data is not deleted.')}
+  app.listen(PORT,'0.0.0.0',()=>console.log(`MAHADEV BOOK listening on ${PORT}`));
+}
+
+// Server-authoritative virtual casino wallet endpoints.
+app.get('/api/casino/balance',need,(req,res)=>res.json({ok:true,balance:Number(req.user.balance||0)}));
+app.post('/api/casino/bet',need,(req,res)=>{
+  const game=cleanText(req.body.game,50)||'casino';
+  const stake=Math.floor(Number(req.body.stake));
+  if(!Number.isInteger(stake)||stake<1||stake>100000000)return res.status(400).json({error:'Invalid stake.'});
+  if(req.user.balance<stake)return res.status(400).json({error:'Insufficient balance.'});
+  req.user.balance-=stake;
+  const tx={id:id('CAS'),uid:req.user.id,game,stake,result:'BET',time:now(),balance:req.user.balance};
+  db.wallet.push({id:tx.id,uid:req.user.id,amount:-stake,type:'CASINO_STAKE',note:game,time:tx.time,balance:req.user.balance});
+  db.games.push(tx);save();
+  res.json({ok:true,balance:req.user.balance,betId:tx.id});
+});
+app.post('/api/casino/settle',need,(req,res)=>{
+  const game=cleanText(req.body.game,50)||'casino';
+  const betId=cleanText(req.body.betId,100);
+  if(!betId)return res.status(400).json({error:'Invalid settlement.'});
+  const existing=db.games.find(x=>x.id===betId&&x.uid===req.user.id);
+  if(!existing)return res.status(404).json({error:'Bet not found.'});
+  if(existing.settled)return res.status(409).json({error:'Bet already settled.'});
+  // Outcome is server-generated; the browser cannot choose its own payout.
+  // Fixed virtual-casino distribution: 70% loss, 20% 2x, 8% 4x, 2% 12x.
+  const roll=crypto.randomInt(0,10000);
+  let multiplier=0;
+  if(roll>=7000&&roll<9000)multiplier=2;
+  else if(roll>=9000&&roll<9800)multiplier=4;
+  else if(roll>=9800)multiplier=12;
+  const finalPayout=Math.floor(existing.stake*multiplier);
+  req.user.balance+=finalPayout;
+  existing.settled=true;existing.result='SETTLED';existing.payout=finalPayout;existing.game=game;existing.time=now();existing.balance=req.user.balance;
+  db.wallet.push({id:id('TX'),uid:req.user.id,amount:finalPayout,type:'CASINO_SETTLEMENT',note:game,time:now(),balance:req.user.balance});
+  save();
+  res.json({ok:true,balance:req.user.balance,payout:finalPayout});
+});
+startup();
+
