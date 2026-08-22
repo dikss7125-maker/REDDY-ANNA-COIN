@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useCasino } 'CasinoContext';
-import audio 'audioEngine';
+import { useCasino } from './CasinoContext.jsx';
+import audio from './audioEngine.js';
 
 // Multipliers based on difficulty
 const DIFFICULTY_MULTIPLIERS = {

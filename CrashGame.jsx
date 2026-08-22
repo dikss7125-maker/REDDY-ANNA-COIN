@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useCasino } 'CasinoContext';
-import audio 'audioEngine';
+import { useCasino } from './CasinoContext.jsx';
+import audio from './audioEngine.js';
 
 export default function CrashGame() {
   const { state, placeBet, addWin, setGlobalBet } = useCasino();

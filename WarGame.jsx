@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import { useCasino } 'CasinoContext';
-import audio 'audioEngine';
+import { useCasino } from './CasinoContext.jsx';
+import audio from './audioEngine.js';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const SUIT_COLORS = { '♠': 'text-gray-200', '♥': 'text-red-500', '♦': 'text-red-500', '♣': 'text-gray-200' };

@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { useCasino } 'CasinoContext';
-import audio 'audioEngine';
+import { useCasino } from './CasinoContext.jsx';
+import audio from './audioEngine.js';
 
 const MULTIPLIER = 1.96; // 2% house edge
 

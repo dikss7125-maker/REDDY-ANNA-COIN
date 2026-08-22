@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { useCasino } 'CasinoContext';
-import audio 'audioEngine';
+import { useCasino } from './CasinoContext.jsx';
+import audio from './audioEngine.js';
 
 export default function LimboGame() {
   const { state, placeBet, addWin, setGlobalBet } = useCasino();

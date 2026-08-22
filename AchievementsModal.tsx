@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Banknote, CloudRain, Coins, Flame, Gem, Heart, Shield, Trophy, X, Zap } from 'lucide-react';
 import React from 'react';
-import { useCasino } 'CasinoContext';
+import { useCasino } from './CasinoContext.jsx';
 
 const ACHIEVEMENTS_LIST = [
   { id: 'first_win', name: 'First Blood', description: 'Win your first game', icon: Trophy, reward: 100 },

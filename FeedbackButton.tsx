@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Bug, CheckCircle, Lightbulb, MessageCircle, MessageSquare, Send, Sparkles, Wrench, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import trackingEngine 'trackingEngine';
+import trackingEngine from './trackingEngine.js';
 
 // Custom styles for Turnstile captcha
 const captchaStyles = `

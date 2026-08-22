@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import trackingEngine 'trackingEngine';
+import trackingEngine from './trackingEngine.js';
 
 const CasinoContext = createContext(null);
 

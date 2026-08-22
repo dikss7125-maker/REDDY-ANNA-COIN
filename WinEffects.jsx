@@ -1,6 +1,6 @@
 import { Cherry, Coins, DollarSign, PartyPopper, Sparkles as SparklesIcon, Star, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import audioEngine 'audioEngine';
+import audioEngine from './audioEngine.js';
 
 // Shockwave effect - expanding rings
 const Shockwave = ({ delay = 0 }) => {

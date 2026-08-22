@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Clock, Gift, X, Zap } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { useCasino } 'CasinoContext';
+import { useCasino } from './CasinoContext.jsx';
 
 interface DailyBonusModalProps {
   onClose: () => void;

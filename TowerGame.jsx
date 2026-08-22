@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import { useCasino } 'CasinoContext';
-import audio 'audioEngine';
+import { useCasino } from './CasinoContext.jsx';
+import audio from './audioEngine.js';
 
 const DIFFICULTIES = {
   easy: { cols: 4, safes: 3, label: 'Easy', color: 'green' },

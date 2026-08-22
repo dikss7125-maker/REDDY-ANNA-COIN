@@ -1,8 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App 'App';
-import { CasinoProvider } 'CasinoContext';
-import './styles/index.css';
+import App from './App';
+import { CasinoProvider } from './CasinoContext.jsx';
+import './index.css';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Root element not found');

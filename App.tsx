@@ -29,36 +29,36 @@ import {
   X
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useCasino } 'CasinoContext';
-import audio 'audioEngine';
-import trackingEngine 'trackingEngine';
+import { useCasino } from './CasinoContext.jsx';
+import audio from './audioEngine.js';
+import trackingEngine from './trackingEngine.js';
 
 // Game imports
-import AchievementsModal 'AchievementsModal';
-import DailyBonusModal 'DailyBonusModal';
-import Dashboard 'Dashboard';
-import FeedbackButton 'FeedbackButton';
-import GameInfoModal 'GameInfoModal';
-import WinEffects 'WinEffects';
+import AchievementsModal from './AchievementsModal';
+import DailyBonusModal from './DailyBonusModal';
+import Dashboard from './Dashboard';
+import FeedbackButton from './FeedbackButton';
+import GameInfoModal from './GameInfoModal';
+import WinEffects from './WinEffects';
 
-import BaccaratGame 'BaccaratGame';
-import BlackjackGame 'BlackjackGame';
-import CoinFlipGame 'CoinFlipGame';
-import CrashGame 'CrashGame';
-import DiceGame 'DiceGame';
-import DragonTigerGame 'DragonTigerGame';
-import HiLoGame 'HiLoGame';
-import KenoGame 'KenoGame';
-import LimboGame 'LimboGame';
-import MinesGame 'MinesGame';
-import ScratchCardsGame 'ScratchCardsGame';
-import SicboGame 'SicboGame';
-import SlotsGame 'SlotsGame';
-import ThreeCardPokerGame 'ThreeCardPokerGame';
-import TicTacToeGame 'TicTacToeGame';
-import TowerGame 'TowerGame';
-import VideoPokerGame 'VideoPokerGame';
-import WarGame 'WarGame';
+import BaccaratGame from './BaccaratGame';
+import BlackjackGame from './BlackjackGame';
+import CoinFlipGame from './CoinFlipGame';
+import CrashGame from './CrashGame';
+import DiceGame from './DiceGame';
+import DragonTigerGame from './DragonTigerGame';
+import HiLoGame from './HiLoGame';
+import KenoGame from './KenoGame';
+import LimboGame from './LimboGame';
+import MinesGame from './MinesGame';
+import ScratchCardsGame from './ScratchCardsGame';
+import SicboGame from './SicboGame';
+import SlotsGame from './SlotsGame';
+import ThreeCardPokerGame from './ThreeCardPokerGame';
+import TicTacToeGame from './TicTacToeGame';
+import TowerGame from './TowerGame';
+import VideoPokerGame from './VideoPokerGame';
+import WarGame from './WarGame';
 
 const GAMES = [
   { id: 'dashboard', name: 'Dashboard', icon: Home, component: Dashboard, color: '#00f5ff' },

@@ -16,7 +16,7 @@ import {
     Spade,
     Target
 } from 'lucide-react';
-import { useCasino } 'CasinoContext';
+import { useCasino } from './CasinoContext.jsx';
 
 // Lucide Icons mapping - matches App.tsx sidebar icons
 const Icons = {

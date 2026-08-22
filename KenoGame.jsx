@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import { useCasino } 'CasinoContext';
-import audio 'audioEngine';
+import { useCasino } from './CasinoContext.jsx';
+import audio from './audioEngine.js';
 
 // More generous payout table
 const PAYOUT_TABLE = {

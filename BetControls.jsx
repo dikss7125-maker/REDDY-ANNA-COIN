@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useCasino } 'CasinoContext';
-import audio 'audioEngine';
+import { useCasino } from './CasinoContext.jsx';
+import audio from './audioEngine.js';
 
 export default function BetControls({
   bet,
