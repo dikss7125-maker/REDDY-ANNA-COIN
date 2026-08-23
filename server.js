@@ -170,7 +170,7 @@ function playerFor(outcome){return outcome?.players?.['0']||outcome?.players?.[0
 app.get('/api/match-odds/:id',async(req,res)=>{
   const cacheKey=String(req.params.id||'');
   const cached=matchOddsCache.get(cacheKey);
-  if(cached&&Date.now()-cached.at<4000)return res.json({...cached.data,cachedAt:cached.at,cacheMs:4000});
+  if(cached&&Date.now()-cached.at<2500)return res.json({...cached.data,cachedAt:cached.at,cacheMs:2500});
   try{
     const body=await cricketDataGet('https://api.cricapi.com/v1/match_info?id='+encodeURIComponent(req.params.id)+'&offset=0');
     const m=body?.data||body;
@@ -192,10 +192,10 @@ app.get('/api/match-odds/:id',async(req,res)=>{
     if(!p1||!p2)return res.status(404).json({error:'Back/Lay outcomes are not available right now.',fixtureId:f.fixtureId});
     const data={ok:true,fixtureId:f.fixtureId,home:f.participant1Name||home,away:f.participant2Name||away,prices:{home:bestExchange(p1),away:bestExchange(p2)},marketActive:market.marketActive!==false,source:'oddspapi/betfair-ex'};
     matchOddsCache.set(cacheKey,{at:Date.now(),data});
-    return res.json({...data,cachedAt:Date.now(),cacheMs:4000});
+    return res.json({...data,cachedAt:Date.now(),cacheMs:2500});
   }catch(e){
     console.error('OddsPapi match-odds error:',e?.message||e);
-    if(cached)return res.json({...cached.data,cachedAt:cached.at,stale:true,cacheMs:4000});
+    if(cached)return res.json({...cached.data,cachedAt:cached.at,stale:true,cacheMs:2500});
     return res.status(e?.status||502).json({error:e?.message||'Odds feed unavailable.',code:e?.code||'ODDSPAPI_CONNECTION_FAILED'});
   }
 });
@@ -252,7 +252,7 @@ app.get('/api/upcoming-matches',async(req,res)=>{
     const to=new Date(Date.now()+48*3600000).toISOString();
     const body=await oddsPapiGet('fixtures',{sportId:27,from,to,statusId:0,hasOdds:'true',bookmakers:'betfair-ex',language:'en'});
     const list=Array.isArray(body)?body:(Array.isArray(body?.data)?body.data:[]);
-    const data=list.filter(x=>x&&x.statusId===0).sort((a,b)=>new Date(a.startTime)-new Date(b.startTime)).slice(0,30);
+    const data=list.filter(x=>x&&x.statusId===0).sort((a,b)=>new Date(a.startTime)-new Date(b.startTime)).slice(0,2);
     const at=Date.now();
     await writeUpcomingCache(data,at);
     res.set('Cache-Control','no-store');
