@@ -5,25 +5,26 @@ if(!ADMIN_PASSWORD||!SESSION_SECRET) console.warn('WARNING: ADMIN_PASSWORD and S
 app.use(express.json({limit:'8mb'}));app.use(express.urlencoded({extended:true}));
 fs.mkdirSync(path.join(__dirname,'uploads'),{recursive:true});
 app.use('/uploads',express.static(path.join(__dirname,'uploads')));
-const CASINO_DIST=path.join(__dirname,'dist-casino');
-app.use('/casino-premium',express.static(CASINO_DIST,{index:'index.html'}));
-app.get('/casino-premium/*',(req,res)=>{
-  const index=path.join(CASINO_DIST,'index.html');
-  if(fs.existsSync(index))return res.sendFile(index);
-  const fallback=path.join(__dirname,'casino.html');
-  if(fs.existsSync(fallback))return res.sendFile(fallback);
-  res.status(503).send('Casino build is not available yet.');
-});
+app.get('/casino-premium',(req,res)=>{const fallback=path.join(__dirname,'casino.html');if(fs.existsSync(fallback))return res.sendFile(fallback);res.status(503).send('Casino page is not available.');});
+app.get('/casino-premium/*',(req,res)=>{const fallback=path.join(__dirname,'casino.html');if(fs.existsSync(fallback))return res.sendFile(fallback);res.status(503).send('Casino page is not available.');});
 
 const db=load();
 const USER_FIELDS=['users','claims','wallet','bets','games','coinRequests','withdrawals','withdrawalDetails'];
 if(!db.settings)db.settings={siteName:'MHADEV BOOK',supportTelegram:'',supportWhatsapp:''};
-if(!db.bonusCodes)db.bonusCodes={WELCOME500:500,EXTRA1000:1000,BONUS2500:2500};if(!db.depositSettings)db.depositSettings={account:{name:'',accountNumber:'',ifsc:'',bank:''},qr:{image:'',upiId:''}};
+if(!db.bonusCodes)db.bonusCodes={WELCOME500:500,EXTRA1000:1000,BONUS2500:2500};
+if(!db.depositSettings)db.depositSettings={account:{name:'',accountNumber:'',ifsc:'',bank:''},qr:{image:'',upiId:''}};
+// JSON files are bootstrap/backup only. PostgreSQL is the durable runtime source of truth.
+let userStore={};try{userStore=JSON.parse(fs.readFileSync(USER_DB_PATH,'utf8'))||{}}catch{}
 const legacyUsers={users:db.users||{},claims:db.claims||[],wallet:db.wallet||[],bets:db.bets||[],games:db.games||[],coinRequests:db.coinRequests||[],withdrawals:db.withdrawals||[],withdrawalDetails:db.withdrawalDetails||{}};
-let userStore;try{userStore=JSON.parse(fs.readFileSync(USER_DB_PATH,'utf8'))}catch{userStore=legacyUsers;writeUserStore()}
-for(const k of USER_FIELDS)db[k]=userStore[k]??legacyUsers[k];
+for(const k of USER_FIELDS){
+  const legacyValue=legacyUsers[k], fileValue=userStore[k];
+  const fileHasData=Array.isArray(fileValue)?fileValue.length>0:(fileValue&&typeof fileValue==='object'?Object.keys(fileValue).length>0:false);
+  const legacyHasData=Array.isArray(legacyValue)?legacyValue.length>0:(legacyValue&&typeof legacyValue==='object'?Object.keys(legacyValue).length>0:false);
+  // An empty shipped users_data.json must never erase non-empty legacy state.
+  db[k]=fileHasData?fileValue:(legacyHasData?legacyValue:(fileValue??legacyValue));
+}
 function load(){try{return JSON.parse(fs.readFileSync(DB_PATH,'utf8'))}catch{return {settings:{siteName:'MHADEV BOOK',supportTelegram:'',supportWhatsapp:''},bonusCodes:{WELCOME500:500,EXTRA1000:1000,BONUS2500:2500},depositSettings:{account:{name:'',accountNumber:'',ifsc:'',bank:''},qr:{image:'',upiId:''}}}}}
-function writeUserStore(){const out={};for(const k of USER_FIELDS)out[k]=db?.[k]??userStore?.[k]??legacyUsers[k];fs.mkdirSync(path.dirname(USER_DB_PATH),{recursive:true});fs.writeFileSync(USER_DB_PATH+'.tmp',JSON.stringify(out,null,2));fs.renameSync(USER_DB_PATH+'.tmp',USER_DB_PATH)}
+function writeUserStore(){const out={};for(const k of USER_FIELDS)out[k]=db?.[k]??legacyUsers[k];fs.mkdirSync(path.dirname(USER_DB_PATH),{recursive:true});fs.writeFileSync(USER_DB_PATH+'.tmp',JSON.stringify(out,null,2));fs.renameSync(USER_DB_PATH+'.tmp',USER_DB_PATH)}
 function save(){const base={...db};for(const k of USER_FIELDS)delete base[k];fs.writeFileSync(DB_PATH+'.tmp',JSON.stringify(base,null,2));fs.renameSync(DB_PATH+'.tmp',DB_PATH);writeUserStore()}
 function id(p){return p+'_'+Date.now().toString(36)+'_'+crypto.randomBytes(4).toString('hex')}function now(){return new Date().toISOString()}
 function sign(p){const raw=Buffer.from(JSON.stringify(p)).toString('base64url');const sig=crypto.createHmac('sha256',SESSION_SECRET||'unsafe').update(raw).digest('base64url');return raw+'.'+sig}function verify(t){try{const [raw,sig]=String(t||'').split('.');const e=crypto.createHmac('sha256',SESSION_SECRET||'unsafe').update(raw).digest('base64url');if(sig!==e)return null;const x=JSON.parse(Buffer.from(raw,'base64url').toString());if(!x.exp||Date.now()>x.exp)return null;return x}catch{return null}}
@@ -46,7 +47,7 @@ app.get('/',(req,res)=>page(res,'index.html'));
 app.get('/admin-login.html',(req,res)=>page(res,'admin-login.html'));
 app.get('/admin',(req,res)=>{if(!admin(req))return res.redirect('/admin-login.html');return res.redirect('/admin.html')});
 app.get('/admin.html',(req,res)=>{if(!admin(req))return res.redirect('/admin-login.html');page(res,'admin.html')});
-app.get('/api/health',(req,res)=>res.json({ok:true,service:'mahadev-book'}));app.get('/api/me',(req,res)=>{res.set('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');res.set('Pragma','no-cache');res.set('Expires','0');const u=user(req);res.json({loggedIn:!!u,user:u?{id:u.id,balance:u.balance,created:u.created,name:u.name}:null})});
+app.get('/api/me',(req,res)=>{res.set('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');res.set('Pragma','no-cache');res.set('Expires','0');const u=user(req);res.json({loggedIn:!!u,user:u?{id:u.id,balance:u.balance,created:u.created,name:u.name}:null})});
 function hash(p,s){return crypto.scryptSync(p,s,64).toString('hex')}function pw(p){const s=crypto.randomBytes(16).toString('hex');return s+':'+hash(p,s)}function okpw(p,v){const [s,d]=String(v||'').split(':');if(!s||!d)return false;return hash(p,s)===d}
 app.post('/api/register',(req,res)=>{const uid=String(req.body.playerId||'').trim().toUpperCase();const pass=String(req.body.password||'');if(!/^[A-Z0-9_]{4,24}$/.test(uid)||pass.length<6)return res.status(400).json({error:'Use a valid Player ID and 6+ character password.'});if(db.users[uid])return res.status(409).json({error:'Player ID already exists.'});db.users[uid]={id:uid,password:pw(pass),balance:0,created:now(),name:''};save();cookie(req,res,'mb_session',sign({uid,exp:Date.now()+7*86400000}),7*86400);res.json({ok:true})});
 app.post('/api/login',(req,res)=>{const uid=String(req.body.playerId||'').trim().toUpperCase();const u=db.users[uid];if(!u||!okpw(String(req.body.password||''),u.password))return res.status(401).json({error:'Invalid Player ID or password.'});cookie(req,res,'mb_session',sign({uid,exp:Date.now()+7*86400000}),7*86400);res.json({ok:true})});
@@ -225,16 +226,15 @@ app.post('/api/admin/bonus-code',needAdmin,(req,res)=>{const code=cleanText(req.
 app.delete('/api/admin/bonus-code/:code',needAdmin,(req,res)=>{const code=cleanText(req.params.code,40).toUpperCase();if(['WELCOME500','EXTRA1000','BONUS2500'].includes(code))return res.status(400).json({error:'Default bonus code cannot be deleted.'});delete db.bonusCodes[code];save();res.json({ok:true})});
 app.post('/api/admin/request',needAdmin,(req,res)=>{const q=db.coinRequests.find(x=>x.id===req.body.id);if(!q||q.status!=='PENDING')return res.status(400).json({error:'Request not available.'});const status=String(req.body.status||'');if(!['APPROVED','REJECTED'].includes(status))return res.status(400).json({error:'Invalid status.'});q.status=status;q.handledAt=now();if(status==='APPROVED'&&(q.kind==='add'||q.kind==='deposit')){const u=db.users[q.uid];u.balance+=q.amount;db.wallet.push({id:id('TX'),uid:q.uid,amount:q.amount,type:'REQUEST_APPROVED',note:'Coin request approved',time:now(),balance:u.balance})}save();res.json({ok:true})});
 
-// PostgreSQL durable persistence. JSON remains a local backup; PostgreSQL is authoritative when DATABASE_URL is present.
-let pgPool=null, pgWriteQueue=Promise.resolve(), pgReady=Promise.resolve();
+// PostgreSQL durable persistence. When DATABASE_URL is configured, PostgreSQL is authoritative.
+let pgPool=null, pgWriteQueue=Promise.resolve(), pgLastError=null;
 const PG_KEY='main';
-function serializableState(){
-  const out={...db};
-  return out;
-}
+function serializableState(){return {...db};}
 async function initPostgres(){
-  if(!process.env.DATABASE_URL||!Pool)return;
-  pgPool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('railway')?{rejectUnauthorized:false}:undefined,max:5});
+  if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is not configured. Connect Railway Postgres and add DATABASE_URL to this service.');
+  if(!Pool)throw new Error('The pg package is unavailable.');
+  pgPool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DATABASE_URL.includes('railway')?{rejectUnauthorized:false}:undefined,max:5,connectionTimeoutMillis:10000,idleTimeoutMillis:30000});
+  await pgPool.query('SELECT 1');
   await pgPool.query(`CREATE TABLE IF NOT EXISTS app_state (
     state_key TEXT PRIMARY KEY,
     state JSONB NOT NULL,
@@ -242,34 +242,46 @@ async function initPostgres(){
   )`);
   const r=await pgPool.query('SELECT state FROM app_state WHERE state_key=$1',[PG_KEY]);
   if(r.rows[0]?.state){
+    // Existing PostgreSQL state is ALWAYS authoritative. Never replace it with
+    // files from a newly uploaded deployment ZIP.
     const saved=r.rows[0].state;
-    for(const k of Object.keys(saved)) db[k]=saved[k];
-    if(!db.users)db.users={}; if(!db.wallet)db.wallet=[]; if(!db.bets)db.bets=[]; if(!db.games)db.games=[];
+    for(const k of Object.keys(db)) delete db[k];
+    for(const k of Object.keys(saved||{})) db[k]=saved[k];
   }else{
-    await pgPool.query('INSERT INTO app_state(state_key,state) VALUES($1,$2::jsonb) ON CONFLICT(state_key) DO NOTHING',[PG_KEY,JSON.stringify(serializableState())]);
+    // First-ever database only: bootstrap once from the deployment state.
+    await pgPool.query('INSERT INTO app_state(state_key,state) VALUES($1,$2::jsonb)',[PG_KEY,JSON.stringify(serializableState())]);
   }
+  if(!db.users||typeof db.users!=='object')db.users={};
+  for(const k of ['claims','wallet','bets','games','coinRequests','withdrawals'])if(!Array.isArray(db[k]))db[k]=[];
+  if(!db.withdrawalDetails||typeof db.withdrawalDetails!=='object')db.withdrawalDetails={};
 }
 function persistPostgres(){
-  if(!pgPool)return Promise.resolve();
+  if(!pgPool)return Promise.reject(new Error('PostgreSQL is not initialized'));
   const snapshot=JSON.stringify(serializableState());
   pgWriteQueue=pgWriteQueue.then(()=>pgPool.query(
     `INSERT INTO app_state(state_key,state,updated_at) VALUES($1,$2::jsonb,NOW())
      ON CONFLICT(state_key) DO UPDATE SET state=EXCLUDED.state,updated_at=NOW()`,
     [PG_KEY,snapshot]
-  )).catch(e=>console.error('PostgreSQL persistence error:',e.message));
+  )).then(()=>{pgLastError=null}).catch(e=>{pgLastError=e;console.error('PostgreSQL persistence error:',e.message);throw e});
   return pgWriteQueue;
 }
 const originalSave=save;
 save=function(){originalSave();return persistPostgres()};
+app.get('/api/health',(req,res)=>{
+  const ok=!!pgPool&&!pgLastError;
+  res.status(ok?200:503).json({ok,service:'mahadev-book',database:pgPool?'postgresql':'unavailable'});
+});
+async function shutdown(){try{await pgWriteQueue;if(pgPool)await pgPool.end()}finally{process.exit(0)}}
+process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);
 async function startup(){
-  try{await initPostgres();console.log(pgPool?'PostgreSQL persistence enabled':'PostgreSQL not configured; using JSON backup')}catch(e){console.error('PostgreSQL init failed:',e.message);console.warn('Continuing with JSON backup; existing user data is not deleted.')}
+  try{await initPostgres();console.log('PostgreSQL persistence enabled (authoritative)');}
+  catch(e){console.error('FATAL: PostgreSQL initialization failed:',e.message);process.exit(1);return;}
   app.listen(PORT,'0.0.0.0',()=>{
     console.log(`MAHADEV BOOK listening on ${PORT}`);
     console.log(`BigBang API key detected at runtime: ${Boolean(bigbangApiKey())}`);
     console.log(`BigBang mode: ${bigbangMode()} | currency: ${bigbangCurrency()}`);
   });
 }
-
 
 // BigBang Casino API integration. Uses the existing player wallet as the source of truth.
 // IMPORTANT: read the key at REQUEST TIME. Railway can inject/update variables after

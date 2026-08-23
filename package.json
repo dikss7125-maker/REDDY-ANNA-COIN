@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "build": "node railway-build.js",
-    "build:casino": "tsc -p tsconfig.casino.json && vite build --config vite.casino.config.js"
+    "build:casino": "node railway-build.js"
   },
   "dependencies": {
     "express": "^4.21.2",
