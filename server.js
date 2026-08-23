@@ -364,7 +364,19 @@ function chooseBigbangFeatured(games){
 app.get('/api/bigbang/status',need,async(req,res)=>{
   const key=bigbangApiKey();
   res.set('Cache-Control','no-store');
-  res.json({ok:Boolean(key),configured:Boolean(key),source:key?'railway-runtime':'missing',keyPrefix:key?key.slice(0,3):'',keyLength:key.length,mode:bigbangMode(),currency:bigbangCurrency()});
+  res.json({
+    ok:Boolean(key),
+    configured:Boolean(key),
+    source:key?'railway-runtime':'missing',
+    keyPrefix:key?key.slice(0,3):'',
+    keyLength:key.length,
+    mode:bigbangMode(),
+    currency:bigbangCurrency(),
+    deploymentId:String(process.env.RAILWAY_DEPLOYMENT_ID||''),
+    serviceId:String(process.env.RAILWAY_SERVICE_ID||''),
+    environmentId:String(process.env.RAILWAY_ENVIRONMENT_ID||''),
+    pid:process.pid
+  });
 });
 
 app.get('/api/bigbang/featured-games',need,async(req,res)=>{
@@ -373,7 +385,13 @@ app.get('/api/bigbang/featured-games',need,async(req,res)=>{
     const games=chooseBigbangFeatured(bigbangCatalogArray(body));
     res.set('Cache-Control','no-store');
     res.json({ok:true,count:games.length,games});
-  }catch(e){console.error('BigBang catalog error:',e?.message||e);res.status(e?.status||502).json({error:e?.message||'BigBang catalog unavailable.'});}
+  }catch(e){
+    console.error('BigBang catalog error:',e?.message||e);
+    res.status(e?.status||502).json({
+      error:e?.message||'BigBang catalog unavailable.',
+      code:e?.code||`HTTP_${e?.status||502}`
+    });
+  }
 });
 
 app.post('/api/bigbang/launch',need,async(req,res)=>{
