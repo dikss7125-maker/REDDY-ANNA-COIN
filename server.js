@@ -139,7 +139,8 @@ app.post('/api/bonus',need,(req,res)=>{const code=String(req.body.code||'').trim
 app.post('/api/coin-request',need,(req,res)=>{const amount=Math.floor(Number(req.body.amount));const kind=String(req.body.kind||'add');if(!Number.isFinite(amount)||amount<100||amount>1000000)return res.status(400).json({error:'Amount must be 100–1,000,000 coins.'});const q={id:id('REQ'),uid:req.user.id,kind,amount,details:String(req.body.details||'').slice(0,200),status:'PENDING',time:now()};db.coinRequests.push(q);save();res.json({ok:true,request:q})});
 app.post('/api/game',need,(req,res)=>{return res.status(423).json({error:'All casino games are currently locked.'});const game=String(req.body.game||'');const stake=Math.floor(Number(req.body.stake));const allowed=['slots','roulette','teenpatti','andar_bahar','dragon_tiger','baccarat','luckywheel','coinflip','dice','7updown','aviator'];if(!allowed.includes(game)||!Number.isFinite(stake)||stake<10||stake>100000)return res.status(400).json({error:'Invalid game or stake.'});if(req.user.balance<stake)return res.status(400).json({error:'Insufficient coins.'});req.user.balance-=stake;let r=crypto.randomInt(0,1000000)/1000000,mult=0,result='';if(game==='aviator'){mult=Math.max(1.01,Math.min(30,1/Math.max(.04,1-r)));result=mult.toFixed(2)+'x'}else if(game==='roulette'){const n=crypto.randomInt(0,37);result=String(n);mult=n===0?0:35}else if(game==='slots'){const s=['7','BAR','GEM','STAR','BELL'];const a=s[crypto.randomInt(0,s.length)],b=s[crypto.randomInt(0,s.length)],c=s[crypto.randomInt(0,s.length)];result=`${a} • ${b} • ${c}`;mult=a===b&&b===c?10:(a===b||b===c||a===c)?1.8:0}else if(game==='coinflip'){result=r<.5?'HEADS':'TAILS';mult=1.9}else if(game==='dice'){const n=crypto.randomInt(1,101);result=String(n);mult=n>95?10:n>80?4:1.8}else if(game==='7updown'){const a=crypto.randomInt(1,7),b=crypto.randomInt(1,7);const s=a+b;result=`${a}+${b}=${s}`;mult=s===7?4:1.9}else if(game==='dragon_tiger'){const a=crypto.randomInt(1,14),b=crypto.randomInt(1,14);result=a===b?'TIE':a>b?'DRAGON':'TIGER';mult=a===b?8:1.95}else if(game==='baccarat'){const a=crypto.randomInt(0,10),b=crypto.randomInt(0,10);result=a>b?'PLAYER':a<b?'BANKER':'TIE';mult=result==='TIE'?8:1.95}else if(game==='andar_bahar'){result=r<.5?'ANDAR':'BAHAR';mult=1.9}else if(game==='teenpatti'){const a=crypto.randomInt(0,100),b=crypto.randomInt(0,100);result=a>=b?'PLAYER':'HOUSE';mult=1.9}else{const vals=[1,2,3,5,10,25];const v=vals[crypto.randomInt(0,vals.length)];result=String(v);mult=v/5}
 const win=Math.floor(stake*mult);if(win>0){req.user.balance+=win;db.wallet.push({id:id('TX'),uid:req.user.id,amount:win,type:'GAME_WIN',note:game,time:now(),balance:req.user.balance})}db.games.push({id:id('GAME'),uid:req.user.id,game,stake,mult,win,result,time:now(),balance:req.user.balance});db.wallet.push({id:id('TX'),uid:req.user.id,amount:-stake,type:'GAME_STAKE',note:game,time:now(),balance:req.user.balance});save();res.json({ok:true,result,mult,win,balance:req.user.balance})});
-app.post('/api/match-bet',need,(req,res)=>{const stake=Math.floor(Number(req.body.stake));const odds=Math.max(1.01,Math.min(50,Number(req.body.odds)));const market=String(req.body.market||'').slice(0,160);if(!market||!Number.isFinite(stake)||stake<10||stake>100000)return res.status(400).json({error:'Invalid pick or stake.'});if(req.user.balance<stake)return res.status(400).json({error:'Insufficient coins.'});req.user.balance-=stake;const bet={id:id('BET'),uid:req.user.id,market,odds,stake,possibleWin:Math.floor(stake*odds),status:'OPEN',time:now()};db.bets.push(bet);db.wallet.push({id:id('TX'),uid:req.user.id,amount:-stake,type:'MATCH_STAKE',note:market,time:now(),balance:req.user.balance});save();res.json({ok:true,bet,balance:req.user.balance})});
+app.post('/api/match-bet',need,(req,res)=>{const stake=Math.floor(Number(req.body.stake));const odds=Math.max(1.01,Math.min(50,Number(req.body.odds)));const market=String(req.body.market||'').slice(0,160);const matchId=String(req.body.matchId||'').slice(0,160);const home=String(req.body.home||'').slice(0,120);const away=String(req.body.away||'').slice(0,120);if(!market||!matchId||!Number.isFinite(stake)||stake<10||stake>100000)return res.status(400).json({error:'Invalid pick or stake.'});if(req.user.balance<stake)return res.status(400).json({error:'Insufficient coins.'});req.user.balance-=stake;const bet={id:id('BET'),uid:req.user.id,matchId,home,away,market,odds,stake,possibleWin:Math.floor(stake*odds),profit:Math.max(0,Math.floor(stake*odds)-stake),status:'OPEN',time:now()};db.bets.push(bet);db.wallet.push({id:id('TX'),uid:req.user.id,amount:-stake,type:'MATCH_STAKE',note:market,time:bet.time,balance:req.user.balance});save();res.json({ok:true,bet,balance:req.user.balance})});
+app.get('/api/match-bets/:matchId',need,(req,res)=>{const matchId=String(req.params.matchId||'');const bets=(Array.isArray(db.bets)?db.bets:[]).filter(x=>x.uid===req.user.id&&String(x.matchId||'')===matchId).slice(-20).reverse();res.set('Cache-Control','no-store');res.json({ok:true,bets})});
 
 // OddsPapi Match Odds proxy. API key stays server-side; only Back/Lay is returned.
 function oddsPapiKey(){return String(process.env.ODDS_PAPI_KEY || process.env.ODDSPAPI_API_KEY || '').replace(/[\r\n]/g,'').trim().replace(/^['"`]+|['"`]+$/g,'').trim()}
@@ -155,7 +156,49 @@ function bestExchange(p){
   return {back,lay,backSize:size(meta.availableToBack)||size(meta.back),laySize:size(meta.availableToLay)||size(meta.lay)};
 }
 
-app.get('/api/match-odds/:id',async(req,res)=>{try{const body=await cricketDataGet('https://api.cricapi.com/v1/match_info?id='+encodeURIComponent(req.params.id)+'&offset=0');const m=body?.data||body;const teams=Array.isArray(m?.teams)?m.teams:[m?.localteam?.name,m?.visitorteam?.name].filter(Boolean);const home=teams[0]||'',away=teams[1]||'';if(!home||!away)return res.status(404).json({error:'Team names unavailable for this match.'});const from=new Date(Date.now()-12*3600000).toISOString(),to=new Date(Date.now()+35*3600000).toISOString();const fixtures=await oddsPapiGet('fixtures',{sportId:27,from,to,statusId:1,hasOdds:'true',bookmakers:'betfair-ex'});const list=Array.isArray(fixtures)?fixtures:(Array.isArray(fixtures?.data)?fixtures.data:[]);let f=list.find(x=>teamMatch(x.participant1Name,home)&&teamMatch(x.participant2Name,away))||list.find(x=>teamMatch(x.participant1Name,away)&&teamMatch(x.participant2Name,home));if(!f)return res.status(404).json({error:'OddsPapi fixture not found for this match.',home,away});const odds=await oddsPapiGet('odds',{fixtureId:f.fixtureId,bookmakers:'betfair-ex'});const book=odds?.bookmakerOdds?.['betfair-ex'];const market=book?.markets?.['271']||book?.markets?.[271];if(!market)return res.status(404).json({error:'Betfair Match Winner market is not available right now.',fixtureId:f.fixtureId});const outcomes=market.outcomes||{};const p1=outcomes['271']?.players?.['0']||outcomes['271']?.players?.[0];const p2=outcomes['272']?.players?.['0']||outcomes['272']?.players?.[0];if(!p1||!p2)return res.status(404).json({error:'Back/Lay outcomes are not available right now.',fixtureId:f.fixtureId});return res.json({ok:true,fixtureId:f.fixtureId,home:f.participant1Name,away:f.participant2Name,prices:{home:bestExchange(p1),away:bestExchange(p2)},source:'oddspapi/betfair-ex'});}catch(e){console.error('OddsPapi match-odds error:',e?.message||e);return res.status(e?.status||502).json({error:e?.message||'Odds feed unavailable.',code:e?.code||'ODDSPAPI_CONNECTION_FAILED'})}});
+let matchOddsCache=new Map();
+function pickFixtureForTeams(list,home,away){
+  const exact=(a,b)=>teamMatch(a,home)&&teamMatch(b,away);
+  let f=list.find(x=>x&&exact(x.participant1Name,x.participant2Name));
+  if(!f)f=list.find(x=>x&&exact(x.participant2Name,x.participant1Name));
+  if(f)return f;
+  const candidates=list.filter(x=>x&&(teamMatch(x.participant1Name,home)||teamMatch(x.participant2Name,home))&&(teamMatch(x.participant1Name,away)||teamMatch(x.participant2Name,away)));
+  candidates.sort((a,b)=>Math.abs(new Date(a.startTime||0)-Date.now())-Math.abs(new Date(b.startTime||0)-Date.now()));
+  return candidates[0]||null;
+}
+function playerFor(outcome){return outcome?.players?.['0']||outcome?.players?.[0]||null}
+app.get('/api/match-odds/:id',async(req,res)=>{
+  const cacheKey=String(req.params.id||'');
+  const cached=matchOddsCache.get(cacheKey);
+  if(cached&&Date.now()-cached.at<4000)return res.json({...cached.data,cachedAt:cached.at,cacheMs:4000});
+  try{
+    const body=await cricketDataGet('https://api.cricapi.com/v1/match_info?id='+encodeURIComponent(req.params.id)+'&offset=0');
+    const m=body?.data||body;
+    const teams=Array.isArray(m?.teams)?m.teams:[m?.localteam?.name,m?.visitorteam?.name].filter(Boolean);
+    const home=teams[0]||'',away=teams[1]||'';
+    if(!home||!away)return res.status(404).json({error:'Team names unavailable for this match.'});
+    const from=new Date(Date.now()-12*3600000).toISOString(),to=new Date(Date.now()+35*3600000).toISOString();
+    const fixtures=await oddsPapiGet('fixtures',{sportId:27,from,to,hasOdds:'true',bookmakers:'betfair-ex',language:'en'});
+    const list=Array.isArray(fixtures)?fixtures:(Array.isArray(fixtures?.data)?fixtures.data:[]);
+    let f=pickFixtureForTeams(list.filter(x=>x?.statusId===1),home,away)||pickFixtureForTeams(list,home,away);
+    if(!f)return res.status(404).json({error:'OddsPapi fixture not found for this live match.',home,away});
+    const odds=await oddsPapiGet('odds',{fixtureId:f.fixtureId,bookmakers:'betfair-ex',language:'en'});
+    const book=odds?.bookmakerOdds?.['betfair-ex'];
+    const market=book?.markets?.['271']||book?.markets?.[271];
+    if(!market)return res.status(404).json({error:'Betfair Match Winner market is not available right now.',fixtureId:f.fixtureId});
+    const outcomes=market.outcomes||{};
+    const p1=playerFor(outcomes['271']||outcomes[271]);
+    const p2=playerFor(outcomes['272']||outcomes[272]);
+    if(!p1||!p2)return res.status(404).json({error:'Back/Lay outcomes are not available right now.',fixtureId:f.fixtureId});
+    const data={ok:true,fixtureId:f.fixtureId,home:f.participant1Name||home,away:f.participant2Name||away,prices:{home:bestExchange(p1),away:bestExchange(p2)},marketActive:market.marketActive!==false,source:'oddspapi/betfair-ex'};
+    matchOddsCache.set(cacheKey,{at:Date.now(),data});
+    return res.json({...data,cachedAt:Date.now(),cacheMs:4000});
+  }catch(e){
+    console.error('OddsPapi match-odds error:',e?.message||e);
+    if(cached)return res.json({...cached.data,cachedAt:cached.at,stale:true,cacheMs:4000});
+    return res.status(e?.status||502).json({error:e?.message||'Odds feed unavailable.',code:e?.code||'ODDSPAPI_CONNECTION_FAILED'});
+  }
+});
 
 // CricketData.org live-feed proxy. API key stays server-side.
 function cricketDataKey(){
@@ -178,7 +221,7 @@ let upcomingCache={at:0,data:[]};
 app.get('/api/upcoming-matches',async(req,res)=>{
   try{
     const fresh=Date.now()-upcomingCache.at>=60*60*1000;
-    if(!fresh&&upcomingCache.data.length)return res.json({ok:true,matches:upcomingCache.data,cachedAt:upcomingCache.at,cacheMinutes:60,source:'oddspapi'});
+    if(!fresh&&upcomingCache.at)return res.json({ok:true,matches:upcomingCache.data,cachedAt:upcomingCache.at,cacheMinutes:60,source:'oddspapi'});
     const from=new Date().toISOString();
     const to=new Date(Date.now()+48*3600000).toISOString();
     const body=await oddsPapiGet('fixtures',{sportId:27,from,to,statusId:0,hasOdds:'true',bookmakers:'betfair-ex',language:'en'});
