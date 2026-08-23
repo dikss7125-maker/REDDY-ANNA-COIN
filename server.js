@@ -1,7 +1,7 @@
 const express=require('express');const crypto=require('crypto');const fs=require('fs');const path=require('path');
 let Pool=null;try{Pool=require('pg').Pool}catch{Pool=null}
-const app=express();const PORT=Number(process.env.PORT||3000);const ADMIN_PASSWORD=String(process.env.ADMIN_PASSWORD||'chiku1661');const SESSION_SECRET=String(process.env.SESSION_SECRET||'');const DB_PATH=process.env.DATA_PATH||path.join(__dirname,'data.json');const USER_DB_PATH=process.env.USER_DATA_PATH||path.join(__dirname,'users_data.json');
-if(!ADMIN_PASSWORD||!SESSION_SECRET) console.warn('WARNING: ADMIN_PASSWORD and SESSION_SECRET should be set in hosting variables.');
+const app=express();const PORT=Number(process.env.PORT||3000);const ADMIN_PASSWORD=String(process.env.ADMIN_PASSWORD||'chiku1661');const SESSION_SECRET=String(process.env.SESSION_SECRET||crypto.createHash('sha256').update('reddy-anna-session:'+String(process.env.DATABASE_URL||'local-development-secret')).digest('hex'));const DB_PATH=process.env.DATA_PATH||path.join(__dirname,'data.json');const USER_DB_PATH=process.env.USER_DATA_PATH||path.join(__dirname,'users_data.json');
+if(!process.env.SESSION_SECRET) console.warn('SESSION_SECRET not set; using a stable database-derived session secret. Set SESSION_SECRET explicitly for production.');
 app.use(express.json({limit:'8mb'}));app.use(express.urlencoded({extended:true}));
 fs.mkdirSync(path.join(__dirname,'uploads'),{recursive:true});
 app.use('/uploads',express.static(path.join(__dirname,'uploads')));
@@ -143,17 +143,17 @@ app.post('/api/match-bet',need,(req,res)=>{const stake=Math.floor(Number(req.bod
 app.get('/api/match-bets/:matchId',need,(req,res)=>{const matchId=String(req.params.matchId||'');const bets=(Array.isArray(db.bets)?db.bets:[]).filter(x=>x.uid===req.user.id&&String(x.matchId||'')===matchId).slice(-20).reverse();res.set('Cache-Control','no-store');res.json({ok:true,bets})});
 
 // OddsPapi Match Odds proxy. API key stays server-side; only Back/Lay is returned.
-function oddsPapiKey(){return String(process.env.ODDS_PAPI_KEY || process.env.ODDSPAPI_API_KEY || '').replace(/[\r\n]/g,'').trim().replace(/^['"`]+|['"`]+$/g,'').trim()}
+function oddsPapiKey(){return String(process.env.ODDS_PAPI_KEY || process.env.ODDSPAPI_API_KEY || process.env.ODDS_API_KEY || '').replace(/[\r\n]/g,'').trim().replace(/^['"`]+|['"`]+$/g,'').trim()}
 async function oddsPapiGet(endpoint,params={}){const key=oddsPapiKey();if(!key)throw Object.assign(new Error('ODDS_PAPI_KEY is not configured.'),{status:503,code:'ODDSPAPI_MISSING_KEY'});const q=new URLSearchParams({...params,apiKey:key});const r=await fetch(`https://api.oddspapi.io/v4/${endpoint}?${q.toString()}`,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(15000)});const text=await r.text();let body={};try{body=JSON.parse(text)}catch{body={raw:text}}if(!r.ok)throw Object.assign(new Error(body?.message||body?.error||`OddsPapi HTTP ${r.status}`),{status:r.status,body});return body}
 function normTeam(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(/\s+/).filter(x=>x.length>1).sort().join(' ')}
 function teamMatch(a,b){const x=normTeam(a),y=normTeam(b);if(!x||!y)return false;if(x===y)return true;const as=new Set(x.split(' ')),bs=new Set(y.split(' '));let common=0;for(const t of as)if(bs.has(t))common++;return common>=Math.max(1,Math.min(as.size,bs.size)-1)}
 function bestExchange(p){
   const meta=p?.exchangeMeta||{};
   const pick=(v)=>Array.isArray(v)&&v.length?Number(v[0]?.price):((typeof v==='number'||typeof v==='string')&&Number.isFinite(Number(v))?Number(v):null);
+  const size=(v)=>Array.isArray(v)&&v.length?Number(v[0]?.size??v[0]?.limit??0):0;
   const back=pick(meta.availableToBack)??pick(meta.back)??pick(p?.availableToBack)??pick(p?.back)??pick(p?.price);
   const lay=pick(meta.availableToLay)??pick(meta.lay)??pick(p?.availableToLay)??pick(p?.lay);
-  const size=(v)=>Array.isArray(v)&&v.length?Number(v[0]?.size||0):0;
-  return {back,lay,backSize:size(meta.availableToBack)||size(meta.back),laySize:size(meta.availableToLay)||size(meta.lay)};
+  return {back:Number.isFinite(back)?back:null,lay:Number.isFinite(lay)?lay:null,backSize:size(meta.availableToBack)||size(meta.back),laySize:size(meta.availableToLay)||size(meta.lay)};
 }
 
 let matchOddsCache=new Map();
@@ -218,22 +218,56 @@ async function cricketDataGet(url){
 }
 
 let upcomingCache={at:0,data:[]};
+const UPCOMING_CACHE_KEY='cricket-upcoming-v1';
+const UPCOMING_CACHE_MS=60*60*1000;
+async function readUpcomingCache(){
+  if(upcomingCache.at && Date.now()-upcomingCache.at<UPCOMING_CACHE_MS)return upcomingCache;
+  if(!pgPool)return upcomingCache;
+  try{
+    const r=await pgPool.query('SELECT data,updated_at FROM api_cache WHERE cache_key=$1',[UPCOMING_CACHE_KEY]);
+    if(r.rows[0]){
+      const at=new Date(r.rows[0].updated_at).getTime();
+      const data=Array.isArray(r.rows[0].data)?r.rows[0].data:[];
+      upcomingCache={at,data};
+    }
+  }catch(e){console.error('Upcoming cache read failed:',e.message)}
+  return upcomingCache;
+}
+async function writeUpcomingCache(data,at){
+  upcomingCache={at,data};
+  if(!pgPool)return;
+  try{
+    await pgPool.query(`INSERT INTO api_cache(cache_key,data,updated_at) VALUES($1,$2::jsonb,to_timestamp($3/1000.0))
+      ON CONFLICT(cache_key) DO UPDATE SET data=EXCLUDED.data,updated_at=EXCLUDED.updated_at`,[UPCOMING_CACHE_KEY,JSON.stringify(data),at]);
+  }catch(e){console.error('Upcoming cache write failed:',e.message)}
+}
 app.get('/api/upcoming-matches',async(req,res)=>{
   try{
-    const fresh=Date.now()-upcomingCache.at>=60*60*1000;
-    if(!fresh&&upcomingCache.at)return res.json({ok:true,matches:upcomingCache.data,cachedAt:upcomingCache.at,cacheMinutes:60,source:'oddspapi'});
+    const cache=await readUpcomingCache();
+    if(cache.at && Date.now()-cache.at<UPCOMING_CACHE_MS){
+      res.set('Cache-Control','no-store');
+      return res.json({ok:true,matches:cache.data,cachedAt:cache.at,cacheMinutes:60,source:'oddspapi-cache'});
+    }
     const from=new Date().toISOString();
     const to=new Date(Date.now()+48*3600000).toISOString();
     const body=await oddsPapiGet('fixtures',{sportId:27,from,to,statusId:0,hasOdds:'true',bookmakers:'betfair-ex',language:'en'});
     const list=Array.isArray(body)?body:(Array.isArray(body?.data)?body.data:[]);
-    upcomingCache={at:Date.now(),data:list.filter(x=>x&&x.statusId===0).sort((a,b)=>new Date(a.startTime)-new Date(b.startTime)).slice(0,30)};
+    const data=list.filter(x=>x&&x.statusId===0).sort((a,b)=>new Date(a.startTime)-new Date(b.startTime)).slice(0,30);
+    const at=Date.now();
+    await writeUpcomingCache(data,at);
     res.set('Cache-Control','no-store');
-    return res.json({ok:true,matches:upcomingCache.data,cachedAt:upcomingCache.at,cacheMinutes:60,source:'oddspapi'});
+    return res.json({ok:true,matches:data,cachedAt:at,cacheMinutes:60,source:'oddspapi'});
   }catch(e){
     console.error('OddsPapi upcoming-matches error:',e?.message||e);
-    if(upcomingCache.data.length)return res.json({ok:true,matches:upcomingCache.data,cachedAt:upcomingCache.at,cacheMinutes:60,source:'oddspapi-cache'});
+    const cache=await readUpcomingCache();
+    if(cache.data.length)return res.json({ok:true,matches:cache.data,cachedAt:cache.at,cacheMinutes:60,source:'oddspapi-stale-cache'});
     return res.status(e?.status||502).json({error:e?.message||'Upcoming matches unavailable.',code:e?.code||'UPCOMING_MATCHES_FAILED'});
   }
+});
+
+app.get('/api/market-status',(req,res)=>{
+  res.set('Cache-Control','no-store');
+  res.json({ok:true,oddsApiConfigured:Boolean(oddsPapiKey()),liveApiConfigured:Boolean(cricketDataKey()),upcomingCacheAt:upcomingCache.at||null,upcomingCacheAgeMs:upcomingCache.at?Date.now()-upcomingCache.at:null});
 });
 
 app.get('/api/live-matches',async(req,res)=>{
@@ -281,6 +315,11 @@ async function initPostgres(){
   await pgPool.query(`CREATE TABLE IF NOT EXISTS app_state (
     state_key TEXT PRIMARY KEY,
     state JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pgPool.query(`CREATE TABLE IF NOT EXISTS api_cache (
+    cache_key TEXT PRIMARY KEY,
+    data JSONB NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   const r=await pgPool.query('SELECT state FROM app_state WHERE state_key=$1',[PG_KEY]);

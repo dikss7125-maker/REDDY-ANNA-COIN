@@ -1,11 +1,14 @@
-RAILWAY DEPLOY FIX
-===================
-The previous package.json referenced a missing casino-app directory via prestart/build:casino.
-This fixed package removes that build step. Railway should run: npm install -> npm start.
-The project contains the root package.json at the repository root.
+RAILWAY DEPLOYMENT
+==================
+Build: npm run build
+Start: node server.js
+Healthcheck: /api/health
 
-IMPORTANT ENV VARS:
-- ADMIN_PASSWORD: set your admin password
-- ODDS_PAPI_KEY: set the full OddsPapi key for match odds
-- CRICKETDATA_API_KEY or CRICWIX_API_KEY: set the full cricket API key
-- SESSION_SECRET: recommended for persistent secure admin/player sessions
+Required / recommended variables:
+- DATABASE_URL: Railway PostgreSQL connection string (required)
+- ADMIN_PASSWORD: admin password (recommended)
+- SESSION_SECRET: recommended; if omitted, a stable database-derived fallback is used
+- CRICKETDATA_API_KEY or CRICWIX_API_KEY: live cricket score feed
+- ODDS_PAPI_KEY: real Back/Lay exchange odds feed
+
+Do not paste API keys into HTML/JS. Keep them in Railway Variables.
