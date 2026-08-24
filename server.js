@@ -220,6 +220,10 @@ async function cricketDataGet(url){
 let upcomingCache={at:0,data:[]};
 const UPCOMING_CACHE_KEY='cricket-upcoming-v1';
 const UPCOMING_CACHE_MS=60*60*1000;
+function futureUpcoming(items){
+  const nowMs=Date.now();
+  return (Array.isArray(items)?items:[]).filter(x=>x&&Number(x.statusId)===0&&Number.isFinite(new Date(x.startTime).getTime())&&new Date(x.startTime).getTime()>nowMs);
+}
 async function readUpcomingCache(){
   if(upcomingCache.at && Date.now()-upcomingCache.at<UPCOMING_CACHE_MS)return upcomingCache;
   if(!pgPool)return upcomingCache;
@@ -244,15 +248,17 @@ async function writeUpcomingCache(data,at){
 app.get('/api/upcoming-matches',async(req,res)=>{
   try{
     const cache=await readUpcomingCache();
-    if(cache.at && Date.now()-cache.at<UPCOMING_CACHE_MS){
+    const nowMs=Date.now();
+    if(cache.at && nowMs-cache.at<UPCOMING_CACHE_MS){
+      const visible=futureUpcoming(cache.data);
       res.set('Cache-Control','no-store');
-      return res.json({ok:true,matches:cache.data,cachedAt:cache.at,cacheMinutes:60,source:'oddspapi-cache'});
+      return res.json({ok:true,matches:visible,cachedAt:cache.at,cacheMinutes:60,source:'oddspapi-cache'});
     }
-    const from=new Date().toISOString();
-    const to=new Date(Date.now()+48*3600000).toISOString();
+    const from=new Date(nowMs).toISOString();
+    const to=new Date(nowMs+48*3600000).toISOString();
     const body=await oddsPapiGet('fixtures',{sportId:27,from,to,statusId:0,hasOdds:'true',bookmakers:'betfair-ex',language:'en'});
     const list=Array.isArray(body)?body:(Array.isArray(body?.data)?body.data:[]);
-    const data=list.filter(x=>x&&x.statusId===0).sort((a,b)=>new Date(a.startTime)-new Date(b.startTime)).slice(0,2);
+    const data=futureUpcoming(list).sort((a,b)=>new Date(a.startTime)-new Date(b.startTime)).slice(0,2);
     const at=Date.now();
     await writeUpcomingCache(data,at);
     res.set('Cache-Control','no-store');
@@ -260,7 +266,8 @@ app.get('/api/upcoming-matches',async(req,res)=>{
   }catch(e){
     console.error('OddsPapi upcoming-matches error:',e?.message||e);
     const cache=await readUpcomingCache();
-    if(cache.data.length)return res.json({ok:true,matches:cache.data,cachedAt:cache.at,cacheMinutes:60,source:'oddspapi-stale-cache'});
+    const stale=futureUpcoming(cache.data).sort((a,b)=>new Date(a.startTime)-new Date(b.startTime)).slice(0,2);
+    if(stale.length)return res.json({ok:true,matches:stale,cachedAt:cache.at,cacheMinutes:60,source:'oddspapi-stale-cache'});
     return res.status(e?.status||502).json({error:e?.message||'Upcoming matches unavailable.',code:e?.code||'UPCOMING_MATCHES_FAILED'});
   }
 });
