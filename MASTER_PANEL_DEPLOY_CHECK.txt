@@ -1,0 +1,23 @@
+MASTER PANEL DEPLOY CHECK — v3
+
+This build contains:
+- GET /master -> Master login redirect when unauthenticated
+- GET /master-login.html -> Master login page
+- POST /api/master/login -> Master authentication
+- Master client/admin management APIs
+- Coin allocation controls
+- Feature/license locks
+- Admin password/session controls
+- Site P/L overview
+
+Railway requirements:
+1. Deploy THIS project root (package.json and server.js must be at repository root).
+2. Build command: npm run build
+3. Start command: node server.js
+4. Set Railway variable MASTER_PASSWORD to a separate Master Panel password (8+ chars recommended).
+5. Keep the existing DATABASE_URL/POSTGRES connection if already configured.
+6. After deploy, open /master-login.html first. /master redirects there until login.
+
+Verification:
+- /api/health must return 200.
+- /master must NOT show "Cannot GET /master".
