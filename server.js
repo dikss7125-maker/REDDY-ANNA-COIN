@@ -45,6 +45,7 @@ function page(res,name){res.set('Cache-Control','no-store');const file=path.join
 const publicPages=['login.html','register.html','index.html','matches.html','match.html','casino.html','aviator.html','wallet.html','deposit.html','withdraw.html','bonus.html','history.html','profile.html','game.html','support.html'];
 for(const f of publicPages){app.get('/'+f,(req,res)=>page(res,f))}
 app.get('/',(req,res)=>page(res,'index.html'));
+app.get('/bigbang-casino.html',(req,res)=>{if(!user(req))return res.redirect('/login.html');return page(res,'bigbang-casino.html')});
 app.get('/admin-login.html',(req,res)=>page(res,'admin-login.html'));
 app.get('/admin',(req,res)=>{if(!admin(req))return res.redirect('/admin-login.html');return res.redirect('/admin.html')});
 app.get('/admin.html',(req,res)=>{if(!admin(req))return res.redirect('/admin-login.html');page(res,'admin.html')});
@@ -507,6 +508,8 @@ app.get('/api/bigbang/featured-games',need,async(req,res)=>{
   }
 });
 
+function baseUrl(req){const proto=String(req.headers['x-forwarded-proto']||'https').split(',')[0].trim()||'https';const host=String(req.headers['x-forwarded-host']||req.headers.host||'').split(',')[0].trim();return host?`${proto}://${host}`:''}
+
 app.post('/api/bigbang/launch',need,async(req,res)=>{
   try{
     const gameId=cleanText(req.body.game_id||req.body.gameId,120);
@@ -516,70 +519,67 @@ app.post('/api/bigbang/launch',need,async(req,res)=>{
     let payload;
     if(mode==='fun'){
       // Demo/fun mode is the safe default: no BigBang wallet is touched.
-      payload={game_id:gameId,user_token:'demo',demo:true,language:'en'};
+      payload={game_id:Number.isFinite(Number(gameId))?Number(gameId):gameId,user_token:'demo',demo:true,language:'en',return_url:baseUrl(req)+'/casino.html'};
     }else{
       // Real-mode launches require a BigBang player to exist. Keep this opt-in via BIGBANG_MODE=real.
       try{await bigbangCreatePlayer(playerId)}catch(e){
         if(e?.status!==200 && e?.status!==201 && e?.status!==409)throw e;
       }
-      payload={game_id:gameId,user_token:playerId,language:'en',currency:bigbangCurrency(),return_url:'/casino.html'};
+      payload={game_id:Number.isFinite(Number(gameId))?Number(gameId):gameId,user_token:playerId,language:'en',currency:bigbangCurrency(),return_url:baseUrl(req)+'/casino.html'};
     }
     const body=await bigbangLaunch(payload);
-    const launchUrl=body?.game_url||body?.launch_url||body?.data?.game_url||body?.data?.launch_url||body?.url||body?.data?.url;
+    const launchUrl=body?.data?.game_url||body?.data?.launch_url||body?.data?.url||body?.game_url||body?.launch_url||body?.url;
     if(!launchUrl)return res.status(502).json({error:'BigBang did not return a launch URL.',response:body});
     res.json({ok:true,game_id:gameId,launch_url:launchUrl,currency:bigbangCurrency(),mode,balance:Number(req.user.balance||0)});
   }catch(e){console.error('BigBang launch error:',e?.message||e);res.status(e?.status||502).json({error:e?.message||'BigBang launch failed.'});}
 });
 
-function verifyBigbangSignature(req){
-  const secret=String(process.env.BIGBANG_WEBHOOK_SECRET||'').trim();
-  if(!secret)return true; // Sandbox can be wired first; set the webhook secret before production use.
-  const supplied=String(req.headers['x-bigbang-signature']||req.headers['x-webhook-signature']||req.headers['x-signature']||'').replace(/^sha256=/,'');
+function hmacHex(value,secret){return crypto.createHmac('sha256',secret).update(value).digest('hex')}
+function verifyBigbangCallback(req,fields){
+  const apiKey=bigbangApiKey();
+  if(!apiKey)return false;
+  const p=req.body||{};
+  const supplied=String(p.signature||req.headers['x-bigbang-signature']||'').replace(/^sha256=/,'').trim().toLowerCase();
   if(!supplied)return false;
-  const raw=JSON.stringify(req.body||{});
-  const expected=crypto.createHmac('sha256',secret).update(raw).digest('hex');
+  const base=fields.map(k=>String(p[k]??'')).join('');
+  const expected=hmacHex(base,apiKey);
   return supplied.length===expected.length&&crypto.timingSafeEqual(Buffer.from(supplied),Buffer.from(expected));
 }
-function bigbangOperation(req,fallback=''){
-  return String(req.body?.operation||req.body?.action||req.body?.type||req.query?.operation||fallback).toLowerCase();
-}
-function bigbangPlayerId(req){return cleanText(req.body?.player_id||req.body?.playerId||req.body?.user_id||req.body?.uid||req.body?.player?.id,80).toUpperCase()}
-function bigbangAmount(req){
-  const b=req.body||{};
-  const raw=b.amount??b.delta??b.stake??b.bet_amount??b.win_amount??b.payout??b.value;
-  const n=Number(raw);return Number.isFinite(n)?n:0;
-}
-function bigbangTxId(req,op){return cleanText(req.body?.transaction_id||req.body?.transactionId||req.body?.tx_id||req.body?.txId||req.body?.round_id||req.body?.roundId||`${op}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,160)}
-function bigbangWalletCallback(req,res,fallbackOp=''){
-  if(!verifyBigbangSignature(req))return res.status(401).json({error:'Invalid BigBang callback signature.'});
-  const uid=bigbangPlayerId(req);const u=db.users[uid];
+function bigbangOperation(req,fallback=''){return String(req.body?.operation||req.body?.action||req.body?.type||req.query?.operation||fallback).toLowerCase()}
+function bigbangPlayerId(req){return cleanText(req.body?.username||req.body?.user_token||req.body?.player_id||req.body?.playerId||req.body?.user_id||req.body?.uid||req.body?.player?.id||req.query?.username,255)}
+function bigbangAmount(req){const n=Number(req.body?.amount);return Number.isFinite(n)?n:0}
+function bigbangTxId(req){return cleanText(req.body?.transaction_id||req.body?.transactionId||req.body?.tx_id||req.body?.txId||`${Date.now()}_${crypto.randomBytes(6).toString('hex')}`,160)}
+app.get('/api/bigbang/user-data',(req,res)=>{
+  const username=cleanText(req.query?.username||'',255);
+  const u=db.users[username];
   if(!u)return res.status(404).json({error:'Player not found.'});
-  const op=bigbangOperation(req,fallbackOp);
-  const amount=Math.abs(bigbangAmount(req));
-  const txid=bigbangTxId(req,op);
-  if(op==='authenticate'||op==='balance'||op==='get_balance')return res.json({ok:true,balance:Number(u.balance||0),currency:bigbangCurrency()});
-  if(!['bet','win','rollback','refund','debit','credit'].includes(op))return res.status(400).json({error:'Unsupported BigBang wallet operation.'});
-  const key=`${op}:${txid}`;
-  if(db.bigbangTransactions.some(x=>x.key===key))return res.json({ok:true,balance:Number(u.balance||0),duplicate:true});
-  if(!Number.isFinite(amount)||amount<0||amount>100000000)return res.status(400).json({error:'Invalid callback amount.'});
-  let delta=0;
-  if(op==='bet'||op==='debit'){
-    if(u.balance<amount)return res.status(400).json({error:'Insufficient coins.'});
-    delta=-amount;
-  }else{
-    delta=amount;
-  }
-  u.balance+=delta;
-  const game=cleanText(req.body?.game||req.body?.game_name||req.body?.game_id||'bigbang',80);
-  db.bigbangTransactions.push({key,uid,operation:op,transactionId:txid,amount,delta,game,time:now(),balance:u.balance});
-  db.wallet.push({id:id('BBTX'),uid,amount:delta,type:`BIGBANG_${op.toUpperCase()}`,note:game,time:now(),balance:u.balance});
-  db.games.push({id:id('BBGAME'),uid:req.user?.id||uid,game,stake:op==='bet'?amount:0,payout:(op==='win'||op==='credit'||op==='rollback'||op==='refund')?amount:0,result:op,time:now(),balance:u.balance,source:'bigbang',transactionId:txid});
-  save();
-  res.json({ok:true,balance:Number(u.balance||0),currency:bigbangCurrency()});
-}
-app.post('/api/bigbang/wallet',(req,res)=>bigbangWalletCallback(req,res));
-app.post('/api/bigbang/balance',(req,res)=>bigbangWalletCallback(req,res,'balance'));
-app.post('/api/bigbang/change',(req,res)=>bigbangWalletCallback(req,res));
+  if(req.query?.signature && !verifyBigbangCallback({body:{username,signature:req.query.signature}},['username']))return res.status(401).json({error:'Invalid BigBang signature.'});
+  res.json({username,balance:Number(u.balance||0),currency:bigbangCurrency()});
+});
+app.post('/api/bigbang/balance-change',(req,res)=>{
+  const p=req.body||{};
+  const uid=cleanText(p.username||'',255); const u=db.users[uid];
+  if(!u)return res.status(404).json({error:'Player not found.'});
+  if(!verifyBigbangCallback(req,['username','amount','game','game_category','transaction_id']))return res.status(401).json({error:'Invalid BigBang callback signature.'});
+  const txid=bigbangTxId(req); const key=`${uid}:${txid}`;
+  const existing=db.bigbangTransactions.find(x=>x.key===key);
+  if(existing)return res.json({status:'ok',balance:Number(existing.balance||u.balance||0)});
+  const amount=Number(p.amount); if(!Number.isFinite(amount))return res.status(400).json({error:'Invalid callback amount.'});
+  // Sandbox callbacks are for integration testing; do not mutate the real site wallet.
+  if(p.sandbox===true){return res.json({status:'ok',balance:Number(u.balance||0),sandbox:true});}
+  if(amount<0 && u.balance<Math.abs(amount))return res.status(400).json({error:'Insufficient coins.'});
+  u.balance+=amount;
+  const game=cleanText(p.game||'bigbang',80);
+  db.bigbangTransactions.push({key,uid,operation:amount<0?'bet':'win',transactionId:txid,amount:Math.abs(amount),delta:amount,game,time:now(),balance:u.balance});
+  db.wallet.push({id:id('BBTX'),uid,amount,type:amount<0?'BIGBANG_BET':'BIGBANG_WIN',note:game,time:now(),balance:u.balance});
+  db.games.push({id:id('BBGAME'),uid,game,stake:amount<0?Math.abs(amount):0,payout:amount>0?amount:0,result:amount<0?'bet':'win',time:now(),balance:u.balance,source:'bigbang',transactionId:txid});
+  save(); res.json({status:'ok',balance:Number(u.balance||0)});
+});
+
+// Backward-compatible callbacks for older BigBang key configurations.
+app.post('/api/bigbang/wallet',(req,res)=>{const p=req.body||{};if(p.username||p.signature)return res.redirect(307,'/api/bigbang/balance-change');return res.status(400).json({error:'Use /api/bigbang/balance-change.'});});
+app.post('/api/bigbang/balance',(req,res)=>res.status(400).json({error:'Use /api/bigbang/user-data for balance reads.'}));
+app.post('/api/bigbang/change',(req,res)=>res.redirect(307,'/api/bigbang/balance-change'));
 
 // Server-authoritative virtual casino wallet endpoints.
 app.get('/api/casino/balance',need,(req,res)=>res.json({ok:true,balance:Number(req.user.balance||0)}));
